@@ -9,10 +9,11 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 - 离线可玩：游戏包本地加载，零互联网请求
 - 手柄友好：大厅焦点导航、游戏中**长按 B 退出**（防误触）、设置页**手柄按键诊断面板**
 - 车机 WebView 优化：实心顶栏、去模糊、滚动流畅
+- **车机无声修复**（比亚迪 DiLink 7.0）：原生媒体音频焦点 + WebAudio 无手势解锁 + 设置页**音频诊断面板**
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/CARCADE/releases) 下载 `FreeGameHub-V1.2-debug.apk`（约 88 MB）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.2-debug.apk`（约 88 MB）。
 
 ```bash
 adb install -r FreeGameHub-V1.2-debug.apk
@@ -24,7 +25,7 @@ adb install -r FreeGameHub-V1.2-debug.apk
 
 | 文件 | SHA-256 |
 |---|---|
-| FreeGameHub-V1.2-debug.apk | `cfb76930a7f453e76ea3b5bc04e51761322dcf3eb1aa5018626d1620f9c65fc6` |
+| FreeGameHub-V1.2-debug.apk | `495fd792b03d0d0251134147f7c211fb1877e84bbd8d0ed84009a25914150436` |
 
 ## 说明
 
