@@ -2,8 +2,10 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.2
+## 当前版本 V1.3
 
+- **CoverFlow 封面传送带大厅**：中央封面最大、左右 3D 透视 + 景深淡化，背景随选中游戏切换，标题 + 醒目开始按钮，底部仅分类与分页；手柄左右切封面、A 直接开始
+- **内置三套主题风格，软件内即时切换**：霓虹街机（默认）/ 琥珀工业 / 深空影院；顶栏调色盘入口 + 设置页主题区，重启后自动保持
 - **11 款游戏**，全部支持手柄（标准映射）+ 触摸 / 键盘
 - 应用 UI 与游戏界面全面中文化
 - 离线可玩：游戏包本地加载，零互联网请求
@@ -13,19 +15,24 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.2-debug.apk`（约 88 MB）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.3-debug.apk`（约 76 MB）。
 
 ```bash
-adb install -r FreeGameHub-V1.2-debug.apk
+adb install -r FreeGameHub-V1.3-debug.apk
 ```
 
-覆盖安装保留数据。包名 `net.hackmo.carcade`。
+覆盖安装保留数据（versionCode 1 → 2）。包名 `net.hackmo.carcade`。
 
 ## 完整性校验
 
 | 文件 | SHA-256 |
 |---|---|
-| FreeGameHub-V1.2-debug.apk | `495fd792b03d0d0251134147f7c211fb1877e84bbd8d0ed84009a25914150436` |
+| FreeGameHub-V1.3-debug.apk | `0322c6f3652faf0a818ccf2dcdf5086d1ead697add50557ae60222307dc9463e` |
+
+## 版本历史
+
+- **V1.3**：CoverFlow 封面传送带大厅 + 三套主题即时切换（霓虹街机 / 琥珀工业 / 深空影院）；安装包瘦身约 88 → 76 MB
+- **V1.2**：比亚迪 DiLink 7.0 车机无声修复 + 装车修复（长按 B 退出、实心顶栏、手柄诊断面板）
 
 ## 说明
 
