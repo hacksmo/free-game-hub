@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free Game Hub · Game centre for Android head units</title>
+<meta name="description" content="Free Game Hub — a landscape game centre for BYD and other Android car head units. Open and play, full gamepad support, playable offline, no account required.">
+<meta name="theme-color" content="#0c121c">
+<link rel="icon" href="../assets/icon.png" type="image/png">
+<link rel="stylesheet" href="../assets/site.css">
+<script src="../assets/downloads.js" defer></script>
+<link rel="canonical" href="https://hacksmo.github.io/free-game-hub/en/">
+<meta property="og:title" content="Free Game Hub — Game centre for Android head units">
+<meta property="og:description" content="Open and play. Full gamepad support, playable offline, no account.">
+<meta property="og:image" content="https://hacksmo.github.io/free-game-hub/assets/lobby.webp">
+<meta property="og:type" content="website">
+</head>
+<body><main>
+
+<header>
+  <a class="brand" href="../">
+    <img src="../assets/icon.png" width="56" height="56" alt="">
+    <span><strong>Free Game Hub</strong><small>Game centre for car head units</small></span>
+  </a>
+  <nav class="languages" aria-label="Language">
+    <a href="../" lang="zh-Hans" hreflang="zh-Hans" dir="auto">简体中文</a>
+    <a href="./" lang="en" hreflang="en" dir="auto" aria-current="page">English</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="meta">
+    <span class="badge">Public beta · <bdi id="ver">1.17</bdi></span>
+  </div>
+  <h1>Your head unit.<br>Your arcade.</h1>
+  <p class="intro">A landscape game centre for BYD DiLink and other Android car head units. Open and play, every game supports a gamepad, works offline, and needs no account, no login and no subscription.</p>
+  <div class="actions">
+    <a class="button" id="dl" href="https://github.com/hacksmo/free-game-hub/releases/latest">Download APK <span aria-hidden="true">↓</span></a>
+    <a class="button secondary" href="#install">How to install</a>
+  </div>
+  <p class="promise">No rooting, no account, no authentication server.</p>
+  <p class="note">Install the APK on the <strong>head unit</strong>, not on a phone. Requires Android 7.0 (API 24) or newer; verified on a BYD DiLink 5.0 (Android 12, 1920×984). A gamepad is optional — touch and keyboard always work.</p>
+  <p class="note support-scope"><strong>Currently focused on BYD head units. Other brands may work, but are out of scope, and there are no plans to add support or fix brand-specific compatibility for them.</strong></p>
+</section>
+
+<section class="gallery">
+  <h2>Familiar in-car experience</h2>
+  <div class="screens">
+    <figure>
+      <a href="../assets/lobby.webp"><img src="../assets/lobby.webp" width="1600" height="900" loading="lazy" alt="CoverFlow lobby: the centre cover is largest, side covers fade in 3D perspective, the background follows the selected game."></a>
+      <figcaption>CoverFlow lobby: the centre cover is largest, side covers fade in 3D perspective, the background follows the selected game.</figcaption>
+    </figure>
+    <figure>
+      <a href="../assets/game.webp"><img src="../assets/game.webp" width="1600" height="900" loading="lazy" alt="In-game view: full-screen landscape, playable with a gamepad or touch."></a>
+      <figcaption>In-game view: full-screen landscape, playable with a gamepad or touch.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<div class="grid">
+  <section class="card" id="install">
+    <span class="eyebrow">01</span>
+    <h2>Install on your head unit</h2>
+    <ol>
+      <li>Park, then download the APK and install it the way your head unit supports (file manager, app store, USB drive, or ADB).</li>
+      <li>Open Free Game Hub. No permissions are needed on first launch; updates can be checked from Settings.</li>
+      <li>Plug in a gamepad and start playing — left/right to change cover, A to start, hold B to leave a game.</li>
+    </ol>
+    <p class="note">ADB is not needed for daily use. How you install the APK depends on the firmware; some builds require you to enable "install unknown apps" in system settings.</p>
+    <a href="https://github.com/hacksmo/free-game-hub#下载与安装">Installation and usage guide ↗</a>
+  </section>
+
+  <section class="card">
+    <span class="eyebrow">02</span>
+    <h2>What's new in 1.17</h2>
+    <ul>
+      <li><strong>Web audio PCM relay</strong>: web audio no longer relies on Chromium's own output route (dropped by the head unit). It is captured as PCM in the page and played by a native AudioTrack — a path verified audible on all channels 1–20 on a real car.</li>
+      <li><strong>Fixed the empty diagnostic tone</strong>: the WAV used for the A/B comparison had a zero-length data chunk, so group A never produced any sound and that comparison was invalid. It now synthesises real audio on the fly.</li>
+      <li><strong>Diagnostics now report where audio routes</strong>: every active playback stream carries a deviceId and device name.</li>
+      <li><strong>Fixed the "web audio via media channel" switch</strong>: it passed a node object where a device id string was required, so Chromium threw and silently fell back — the switch never actually did anything.</li>
+      <li>The audio shim now lives in its own asset file, so the app and the automated probe run the exact same code.</li>
+    </ul>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.17">Release notes and checksums ↗</a>
+    <h3>Before you try it</h3>
+    <p>This is a public beta. Head-unit firmware varies a lot, so audio, gamepads and the install flow may need per-car tuning. On slower units keep "head-unit performance mode" on (default): it disables the animated background and depth-of-field blur.</p>
+  </section>
+</div>
+
+<section class="card">
+  <div class="grid2">
+    <div>
+      <h2>Highlights</h2>
+      <ul>
+        <li>10 original games, all with gamepad support (standard mapping) plus touch and keyboard</li>
+        <li>Plays offline: game bundles are loaded locally, so it keeps working without a connection</li>
+        <li>CoverFlow cover-flow lobby, cinematic poster art and three built-in themes</li>
+        <li>Detail pages fit on one screen — no scrolling needed</li>
+        <li>Head-unit performance mode: kills background animation and blur for smoother scrolling on weak hardware</li>
+        <li>Declared as a game app (<code>appCategory=game</code>) to qualify for head-unit game treatment</li>
+        <li>In-app updates: check, download, verify, and install over the top</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Online platform (optional)</h2>
+      <ul>
+        <li>Register a game in the backend and it appears in the head-unit lobby</li>
+        <li>Remote games can be played straight online, with no download</li>
+        <li>The backend shows daily players, play count and play time per game</li>
+        <li>Offline is silent and graceful — built-in games keep working</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="card updates">
+  <div>
+    <h2>Get updates</h2>
+    <p>Watch the project on GitHub for new releases, or just check for updates inside the app.</p>
+  </div>
+  <a class="button secondary" href="https://github.com/hacksmo/free-game-hub/releases">All releases ↗</a>
+</section>
+
+<section class="signing">
+  <h2>Updates and signing</h2>
+  <p>Installing over an earlier public build keeps your settings and installed games. The public signing key does not change. Test builds use a separate package name.</p>
+</section>
+
+<section class="card">
+  <h2>Please send a diagnostic report</h2>
+  <p>There is no ADB on a head unit, so the app collects the system-side view itself. For mute audio, game-mode problems or washed-out gamepad screens, the report points straight at the cause.</p>
+  <ol>
+    <li>Open <strong>Settings → Head-unit diagnostics → Export diagnostic report</strong>; the report is copied to the clipboard.</li>
+    <li>Paste it into a text editor, review it and <strong>remove passwords and anything private</strong> (device id, MAC addresses).</li>
+    <li>Nothing is uploaded automatically — you have to attach it yourself.</li>
+    <li>Include: car and head-unit model, Android version, connection method, steps to reproduce, expected vs actual behaviour, and the time of the failure.</li>
+  </ol>
+  <a href="https://github.com/hacksmo/free-game-hub/issues">Report an issue ↗</a> · <a href="https://github.com/hacksmo/free-game-hub/issues/new">Open a new issue ↗</a>
+</section>
+
+<footer>
+  <nav>
+    <a href="https://github.com/hacksmo/free-game-hub/blob/main/README.md">Documentation</a>
+    <a href="https://github.com/hacksmo/free-game-hub">Source code</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.17">Release notes and checksums</a>
+    <a href="https://github.com/hacksmo/free-game-hub/issues">Report an issue</a>
+  </nav>
+  <p>Independent project, not affiliated with BYD. All game content is original or uses permissively licensed assets. Install records, favourites and recent sessions stay on your device.</p>
+</footer>
+
+</main></body></html>

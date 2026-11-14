@@ -2,8 +2,13 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.16
+## 当前版本 V1.17
 
+- **网页音频 PCM 中转（车机无声的正解）**：真车对照显示——**车机浏览器播放视频有声音、别的客户端也有声音，只有本应用无声**，而原生 AudioTrack 在 legacy stream type 1–20 上逐路都能听到。说明车机音频系统本身正常，被丢弃的是 **Chromium WebView 那条音频流**（诊断报告里它的 contentType 是 `TYPE_0` 未声明，而浏览器走 MediaPlayer 会声明 MOVIE/MUSIC）。本版不再赌路由，改为**绕过它**：网页里用 ScriptProcessor 采出渲染后的 PCM → 经 JS 桥交给原生 → 用**真车已验证 1–20 全部可闻**的 legacy AudioTrack 播放。设置页新增「网页音频 PCM 中转」开关（可运行时切换，不用重装）
+- **修掉诊断的空测试音（此前判定无效）**：A/B 对照用的 WAV 采样数据长度为 0（44 字节只有头没有采样），A 组「HTMLMediaElement 测试音」**从来没真正发出过声音** —— 报告里 `duration=0`、`advanced=false` 是必然结果，那次结论不成立。现改为现场合成 0.5s/1kHz 真实音频，复测 `duration=0.5`、`advanced=true`
+- **修掉「网页音频走媒体通道」开关（等于没开过）**：实现里 `new AudioContext({sinkId: mediaDest})` 传的是节点对象，而 `sinkId` 要的是**输出设备 id 字符串**，Chromium 抛异常后静默回落成普通 AudioContext —— 所以「试过没用」并不能证伪该假说
+- **诊断补上音频流路由设备**：每条活跃播放流现在都带 `deviceId` / `deviceName`（`getAudioDeviceId` 从 API 26 就有，这车是 API 32，此前一直没采集），直接看出网页音频流被路由到哪个设备，不再靠猜
+- **音频 shim 抽成独立资源文件**：`public/shim/audio-shim.js` 是唯一来源，真机与自动化探针跑同一份代码，杜绝「改了副本、探针还在测旧副本」的漂移
 - **应用自动更新（SP4）**：设置页新增「应用更新」区——车机上不再需要手动拷贝安装包。启动时静默检查线上版本，有新版本就显示版本号与更新说明，点「下载并安装」即可覆盖安装（保留已有数据与已装游戏）。下载完成后**必须校验 sha256**，不匹配绝不安装；检查与下载全在后台线程，不影响大厅渲染与游戏启动。**车机现实约束**：部分车机固件禁止拉起「未知来源」安装器或把开关藏在系统设置深处，此时应用自动把 APK 复制到 **Download 目录**并提示用文件管理器打开安装（覆盖安装，数据不丢）
 - **车机性能：图片资源瘦身（卡顿主因）**：游戏封面原为 1664×2496 JPEG（约 1.2MB/张），车机屏上实际只显示约 316×475px——解码后 10 张封面就占约 166MB 位图，是「778G 也卡」的真正原因。全部改为 **720×1080 WebP**（12MB → 0.7MB），全部图片加 `decoding="async"` + 首屏图 `fetchPriority="high"`、非首屏 `loading="lazy"`；前端资源 89MB → 28MB，安装包 **69MB → 22.8MB**，画面观感不变
 - **车机诊断面板（无需 root/ADB）**：设置页新增「车机诊断」，直接显示系统视角数据——音频焦点/媒体会话、**全部输出端口（车机多路为 BUS 通道）**、当前活跃播放被路由到哪、系统是否识别手柄、内存与 BYD 组件列表，并探测本机是否存在 BYD 专属音频通道接口；「导出诊断报告」写入剪贴板即可粘贴给开发者，用于定位「无声 / 进不了游戏模式 / 连手柄泛白」
@@ -40,13 +45,13 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.16-debug.apk`（约 23 MB，比最初版瘦 67%）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.17-debug.apk`（约 23 MB，比最初版瘦 67%）。
 
 ```bash
-adb install -r FreeGameHub-V1.16-debug.apk
+adb install -r FreeGameHub-V1.17-debug.apk
 ```
 
-覆盖安装保留数据（versionCode 15 → 16）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
+覆盖安装保留数据（versionCode 16 → 17）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
 
 ## 完整性校验
 
@@ -65,6 +70,7 @@ adb install -r FreeGameHub-V1.16-debug.apk
 
 ## 版本历史
 
+- **V1.17**：车机无声攻坚——新增**网页音频 PCM 中转**（网页采 PCM → 原生 legacy AudioTrack 播放，绕开 Chromium 输出路由）；修掉诊断 WAV 为空导致的无效 A/B 判定；修掉「网页音频走媒体通道」开关的 `sinkId` 误用；诊断补上活跃音频流的 `deviceId`/`deviceName`；音频 shim 抽为独立资源文件
 - **V1.16**：应用自动更新——设置页新增「应用更新」区（检查新版本 → 下载 → sha256 校验 → 拉起系统安装器覆盖安装，保留数据）；原生新增 `AppUpdater.kt`（后台线程下载、sha256 校验、FileProvider 授权、安装器被拒时降级复制到 Download 目录）；服务端新增 `/api/app-update` 与 `/app/<file>`（Range 断点续传）、后台「应用更新」上传区；修掉服务端 `POST /api/admin/app-release` 处理代码误写在 `do_GET` 里导致实际 404 的缺陷
 - **V1.15**：平台闭环——客户端接远程目录（远程覆盖内置、未覆盖内置保留、断网降级）+ 远程游戏在线直玩 + 埋点上报；服务端新增在线可玩托管 `/play/`、埋点接口与统计接口，后台新增「统计」区（每款游戏今日人数/次数/时长 + 近 7 日趋势）；并修掉 `/api/catalog` 缺 CORS 头导致车机拉不到目录的问题
 - **V1.14**：车机音频二分诊断——A/B 对照（`<audio>` vs WebAudio）+「网页音频走媒体通道」试验开关 + 通道扫描新增 contentType 对照行；并修掉原生测试音 write() 阻塞调用线程的缺陷
@@ -84,5 +90,6 @@ adb install -r FreeGameHub-V1.16-debug.apk
 
 ## 说明
 
-- 本仓库为私有分发用途；APK 通过 Release 附件提供，游戏资源不进 git。
+- 本仓库为**公开分发**用途：只含说明文档与发布产物索引，**不含应用源码**；APK 通过 Release 附件提供，游戏资源不进 git。
+- 文档站：<https://hacksmo.github.io/free-game-hub/>（`site/`，由 GitHub Pages 托管）。
 - 包内个别游戏原作者未声明许可证，商用 / 公开分发前请先取得授权。

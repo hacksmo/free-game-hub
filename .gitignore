@@ -25,3 +25,6 @@ tools/*results*.json
 *.log
 # SDD 临时工作区
 .superpowers/
+
+# 注：site/（公开文档站）与 public/shim/（音频 shim 源）**入库**——
+#     前者由 GitHub Pages 托管，后者是构建产物 audio-shim.js 的唯一来源。

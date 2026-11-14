@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-Hans" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free Game Hub · 车机游戏中心</title>
+<meta name="description" content="Free Game Hub —— 比亚迪等安卓车机上的横屏游戏中心。打开即玩、全部支持手柄、离线可玩、无需登录。">
+<meta name="theme-color" content="#0c121c">
+<link rel="icon" href="assets/icon.png" type="image/png">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/downloads.js" defer></script>
+<link rel="canonical" href="https://hacksmo.github.io/free-game-hub/">
+<meta property="og:title" content="Free Game Hub — 车机游戏中心">
+<meta property="og:description" content="打开即玩。全部游戏支持手柄，离线可玩，无需账号。">
+<meta property="og:image" content="https://hacksmo.github.io/free-game-hub/assets/lobby.webp">
+<meta property="og:type" content="website">
+</head>
+<body><main>
+
+<header>
+  <a class="brand" href="./">
+    <img src="assets/icon.png" width="56" height="56" alt="">
+    <span><strong>Free Game Hub</strong><small>车机游戏中心 · 独立项目</small></span>
+  </a>
+  <nav class="languages" aria-label="语言">
+    <a href="./" lang="zh-Hans" hreflang="zh-Hans" dir="auto" aria-current="page">简体中文</a>
+    <a href="./en/" lang="en" hreflang="en" dir="auto">English</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="meta">
+    <span class="badge">公开测试版 · <bdi id="ver">1.17</bdi></span>
+  </div>
+  <h1>你的车机。<br>你的游戏厅。</h1>
+  <p class="intro">为比亚迪 DiLink 等安卓车机做的横屏游戏中心。打开即玩，全部游戏支持手柄，断网也能玩，不需要账号、不需要登录、不需要会员。</p>
+  <div class="actions">
+    <a class="button" id="dl" href="https://github.com/hacksmo/free-game-hub/releases/latest">下载 APK <span aria-hidden="true">↓</span></a>
+    <a class="button secondary" href="#install">安装方法</a>
+  </div>
+  <p class="promise">无需越狱、无需账号、无需认证服务器。</p>
+  <p class="note">APK 请安装到<strong>车机</strong>，不是手机。最低 Android 7.0（API 24），已在比亚迪 DiLink 5.0（Android 12，1920×984）实车验证。手柄为可选外设：无手柄也可用触屏与键盘。</p>
+  <p class="note support-scope"><strong>目前专注于比亚迪车机。其他品牌可能能跑，但不在支持范围内，也没有增加支持或修复其品牌特定兼容性问题的计划。</strong></p>
+</section>
+
+<section class="gallery">
+  <h2>熟悉的驾乘体验</h2>
+  <div class="screens">
+    <figure>
+      <a href="assets/lobby.webp"><img src="assets/lobby.webp" width="1600" height="900" loading="lazy" alt="CoverFlow 封面传送带大厅：中央封面最大，左右 3D 透视淡出，背景随选中游戏切换。"></a>
+      <figcaption>CoverFlow 封面传送带大厅：中央封面最大，左右 3D 透视淡出，背景随选中游戏切换。</figcaption>
+    </figure>
+    <figure>
+      <a href="assets/game.webp"><img src="assets/game.webp" width="1600" height="900" loading="lazy" alt="游戏中画面：横屏全屏，支持手柄与触摸。"></a>
+      <figcaption>游戏中画面：横屏全屏，支持手柄与触摸。</figcaption>
+    </figure>
+  </div>
+</section>
+
+<div class="grid">
+  <section class="card" id="install">
+    <span class="eyebrow">01</span>
+    <h2>安装到车机</h2>
+    <ol>
+      <li>停车后下载 APK，并通过车机支持的方式安装（文件管理器 / 应用市场 / U 盘 / ADB）。</li>
+      <li>打开 Free Game Hub。首次启动无需任何授权，设置页里可以检查更新。</li>
+      <li>连上手柄即可开始玩 —— 大厅里左右键切封面，A 键直接开始，长按 B 退出游戏。</li>
+    </ol>
+    <p class="note">日常使用不需要 ADB。APK 安装方式取决于车机固件；部分固件会要求在系统设置里手动打开「未知来源安装」。</p>
+    <a href="https://github.com/hacksmo/free-game-hub#下载与安装">安装与使用指南 ↗</a>
+  </section>
+
+  <section class="card">
+    <span class="eyebrow">02</span>
+    <h2>1.17 更新内容</h2>
+    <ul>
+      <li><strong>网页音频 PCM 中转</strong>：网页声音不再走 Chromium 自己的输出路由（车机上那条会被丢弃），而是在网页里采成 PCM，交给原生 AudioTrack 播放 —— 这条通道真车已验证 1–20 全部可闻。</li>
+      <li><strong>修掉诊断的空测试音</strong>：此前 A/B 对照用的 WAV 采样数据长度为 0，A 组从来没真正发出过声音，那次判定是无效实验。现在改为现场合成真实音频。</li>
+      <li><strong>诊断补上音频流路由设备</strong>：每条活跃播放流现在都带 deviceId / deviceName，直接看出网页音频被路由到哪个设备。</li>
+      <li><strong>修掉「网页音频走媒体通道」开关</strong>：此前 sinkId 传的是节点对象而非设备 id 字符串，Chromium 抛异常后静默回落，那个开关等于没开过。</li>
+      <li>音频 shim 抽成独立资源文件，真机与自动化探针跑同一份代码。</li>
+    </ul>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.17">发布说明与校验值 ↗</a>
+    <h3>试用前请了解</h3>
+    <p>这是公开测试版。车机固件差异很大，音频、手柄与安装流程都可能需要逐车调试。弱车机建议保持「车机性能模式」开启（默认开），它会关掉背景持续动画与景深模糊。</p>
+  </section>
+</div>
+
+<section class="card">
+  <div class="grid2">
+    <div>
+      <h2>主要能力</h2>
+      <ul>
+        <li>10 款自研游戏，全部支持手柄（标准映射）+ 触摸 / 键盘</li>
+        <li>离线可玩：游戏包本地加载，装完断网也能玩</li>
+        <li>CoverFlow 封面传送带大厅 + 电影感海报 + 三套主题风格</li>
+        <li>详情页一屏化，无需上下滚动</li>
+        <li>车机性能模式：关掉背景动画与景深模糊，弱车机更顺</li>
+        <li>游戏模式：声明 <code>appCategory=game</code>，争取车机游戏待遇</li>
+        <li>应用自动更新：设置页检查新版本 → 下载 → 校验 → 覆盖安装</li>
+      </ul>
+    </div>
+    <div>
+      <h2>在线平台（可选）</h2>
+      <ul>
+        <li>后台登记游戏 → 车机大厅自动出现</li>
+        <li>远程游戏可直接在线玩，无需下载</li>
+        <li>后台能看到每款游戏的今日人数 / 次数 / 时长</li>
+        <li>断网时静默降级，内置游戏照常可玩</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="card updates">
+  <div>
+    <h2>获取更新</h2>
+    <p>在 GitHub 上关注本项目，新版本发布会有通知；也可以在应用设置页直接检查更新。</p>
+  </div>
+  <a class="button secondary" href="https://github.com/hacksmo/free-game-hub/releases">全部版本 ↗</a>
+</section>
+
+<section class="signing">
+  <h2>更新与签名</h2>
+  <p>覆盖安装到之前的公开版本即可保留设置与已装游戏，公开版签名密钥不变。测试版使用独立的应用包名。</p>
+</section>
+
+<section class="card">
+  <h2>请提供新诊断报告</h2>
+  <p>车机上没有 ADB 时，靠应用内面板取系统视角数据。遇到无声 / 进不了游戏模式 / 连手柄泛白这类问题，报告能直接定位到根因。</p>
+  <ol>
+    <li>打开应用 <strong>设置 → 车机诊断 → 导出诊断报告</strong>，报告会写入剪贴板。</li>
+    <li>粘贴到记事本，检查内容，<strong>删除密码及隐私信息</strong>（设备号、MAC 等）。</li>
+    <li>报告不会自动上传，需要你手动贴到 issue。</li>
+    <li>附上：车型／车机型号、Android 版本、连接方式、复现步骤、预期与实际结果、故障时间。</li>
+  </ol>
+  <a href="https://github.com/hacksmo/free-game-hub/issues">报告问题 ↗</a> · <a href="https://github.com/hacksmo/free-game-hub/issues/new">新建问题 ↗</a>
+</section>
+
+<footer>
+  <nav>
+    <a href="https://github.com/hacksmo/free-game-hub/blob/main/README.md">使用说明</a>
+    <a href="https://github.com/hacksmo/free-game-hub">源代码</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.17">发布说明与校验值</a>
+    <a href="https://github.com/hacksmo/free-game-hub/issues">报告问题</a>
+  </nav>
+  <p>独立项目，与比亚迪无隶属关系。所有游戏内容均为原创或使用许可开源素材。安装记录、收藏与最近游玩仅保存在本机。</p>
+</footer>
+
+</main></body></html>
