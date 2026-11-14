@@ -2,7 +2,7 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.13
+## 当前版本 V1.14
 
 - **车机性能：图片资源瘦身（卡顿主因）**：游戏封面原为 1664×2496 JPEG（约 1.2MB/张），车机屏上实际只显示约 316×475px——解码后 10 张封面就占约 166MB 位图，是「778G 也卡」的真正原因。全部改为 **720×1080 WebP**（12MB → 0.7MB），全部图片加 `decoding="async"` + 首屏图 `fetchPriority="high"`、非首屏 `loading="lazy"`；前端资源 89MB → 28MB，安装包 **69MB → 22.8MB**，画面观感不变
 - **车机诊断面板（无需 root/ADB）**：设置页新增「车机诊断」，直接显示系统视角数据——音频焦点/媒体会话、**全部输出端口（车机多路为 BUS 通道）**、当前活跃播放被路由到哪、系统是否识别手柄、内存与 BYD 组件列表，并探测本机是否存在 BYD 专属音频通道接口；「导出诊断报告」写入剪贴板即可粘贴给开发者，用于定位「无声 / 进不了游戏模式 / 连手柄泛白」
@@ -10,6 +10,8 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 - **车机通道测试音（无声问题决定性实验）**：设置页「车机诊断 → 音频输出通道」新增「播放通道测试音」，走与锚定流同一条 `USAGE_MEDIA + CONTENT_TYPE_MUSIC` 的 AudioTrack 播 1kHz/0.6s 真实音频（播完自动恢复静音）。**能听到 → 通道通、问题在 WebAudio 的 contentType（车机报告里活跃流是未声明类型）；听不到 → 该通道被车机音频策略丢弃**，两条路各修各的，不再靠猜
 - **安装兼容性修正**：比亚迪车机安装器对含 `android.media.browse.MediaBrowserService` 的包报「解析软件包出现问题」——该组件（媒体源注册）只是推测性的一招，**先摘除**，音频路由锚定与通道测试音不依赖它，实验照常进行
 - **车机音频全通道扫描（纠正通道语义）**：逆向 DiPlay 的实测方案得知——BYD 车机的「音频通道」不是输出设备，而是 **legacy stream type 1–20**（DiPlay 源码注释：0=usage 方式，1–20=车机支持的 legacy 通道；它优先用老式 `AudioTrack(streamType,…)` 构造器）。本版改为按通道号建流，设置页新增「音频通道扫描」：1→20 逐路播 0.35s 测试音，逐路给出**能否播放 / 实际路由设备 / 系统音量与静音**，每路可单独试听与绑定，默认锚定 STREAM_MUSIC(3)
+- **车机音频二分诊断（A/B 对照 + 试验开关）**：真车实测「原生测试音每一路都能听到、但网页音乐全哑」→ 证明**车机路由是通的，问题在网页侧音频**；报告里活跃流的 `contentType: TYPE_0`（未声明内容类型）是嫌疑点。本版在诊断面板加：① **A · `<audio>` 测试音** 与 **B · WebAudio 测试音** 对照；② **「开启网页音频走媒体通道」开关**（WebAudio 经 MediaStream→`<audio>` 输出，以 `CONTENT_TYPE_MUSIC` 身份出声，模拟器实测该桥接可用）；③ 通道扫描新增 **usage + CONTENT_TYPE_UNKNOWN** 对照行
+- **修测试音阻塞**：原生测试音此前缓冲区只有 16KB 却要塞 0.35s×44.1kHz×立体声≈61KB 数据，`write()` 会一直等硬件消费完而**阻塞调用线程**（车机上会卡界面）。现按音频长度给足缓冲区，音量降到 0.4（清晰可闻又不压满音频管线）
 - **详情页一屏化**：游戏详情重做为横向三栏（海报｜信息｜预览），一屏显示完整、无需上下滚动；简介自适应行数、规格压成 chips、版本移顶栏、安装状态做海报徽标；1280×720 / 1024×600 / 1920×1080 三档分辨率实测均不溢出，保留三套主题与手柄导航
 - **画面缩放锁定**：viewport 锁 `maximum-scale=1 / user-scalable=no` + WebView 关闭缩放支持/控件/overview 模式，页面恒 100% 贴合屏幕，修复车机「一会全屏一会放大」的缩放漂移
 - **通知单条化**：提示气泡改为「新替旧、单条显示」，修复「安装完成」与「返回大厅」两条提示在回大厅瞬间上下堆叠、遮挡封面的问题（实测中央封面始终精确居中）
@@ -36,18 +38,19 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.13-debug.apk`（约 23 MB，比上一版瘦 67%）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.14-debug.apk`（约 23 MB，比上一版瘦 67%）。
 
 ```bash
-adb install -r FreeGameHub-V1.13-debug.apk
+adb install -r FreeGameHub-V1.14-debug.apk
 ```
 
-覆盖安装保留数据（versionCode 12 → 13）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
+覆盖安装保留数据（versionCode 13 → 14）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
 
 ## 完整性校验
 
 | 文件 | SHA-256 |
 |---|---|
+| FreeGameHub-V1.14-debug.apk | `45f4e039e7e73ed9510874f8d665c7b37ae307840715c14754f13a65ccf15322` |
 | FreeGameHub-V1.13-debug.apk | `b582df7227303f5758a808634af0149fbb0a9168e323a4db587177a31e20a96d` |
 | FreeGameHub-V1.12-debug.apk | `82401c81c85e472b822400c5788eb2055cc0377088ef4a66af9915b890007160` |
 | FreeGameHub-V1.11-debug.apk | `0ce2e6c9295e83efedac2111d10713e3cad84e46b8d20a0643ee6605d08d113a` |
@@ -58,6 +61,7 @@ adb install -r FreeGameHub-V1.13-debug.apk
 
 ## 版本历史
 
+- **V1.14**：车机音频二分诊断——A/B 对照（`<audio>` vs WebAudio）+「网页音频走媒体通道」试验开关 + 通道扫描新增 contentType 对照行；并修掉原生测试音 write() 阻塞调用线程的缺陷
 - **V1.13**：车机音频全通道扫描——纠正通道语义（BYD 通道＝legacy stream type 1–20，非输出设备），1–20 逐路播测试音并给出实际路由设备与系统音量，可逐路试听/绑定
 - **V1.12**：安装兼容性——摘除车机安装器疑似拒绝的 MediaBrowserService 组件（音频通道锚定与测试音不受影响），并同步 v1.11 的通道测试音与手柄枚举修正
 - **V1.11**：车机无声定位增强——新增原生「通道测试音」做决定性 A/B（能听到=通道通、问题在 WebAudio contentType；听不到=通道被丢弃），手柄枚举改用公开 API，默认锚定内置扬声器
