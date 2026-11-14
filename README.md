@@ -2,8 +2,9 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.5
+## 当前版本 V1.5.1
 
+- **卡内按钮对称布局**：详情(左) · 下载/开始(中) · 收藏(右)，等宽侧列三列网格，主按钮在封面内绝对居中
 - **海报级封面**：11 款游戏全部换上定制电影感 key art——合成波竞速、雨夜霓虹悬疑、水墨仙侠、金色沙漠公路、废土机甲、深海荧光、像素太空射击……统一 2:3 竖版海报构图，画面不含文字，排版由大厅信息层承担；大厅 / 发现页 / 详情页同步焕新
 - **信息做进封面卡片**：游戏标题 + 分类/手柄/体积眉题 + 开始/下载按钮 + 详情 + 收藏，全部收进中央封面底部的渐变信息层——封面即海报，海报即界面；删除卡下独立信息区，中央封面 52vh → **66vh** 巨幕化
 - **CoverFlow 封面传送带大厅**：中央封面最大、左右 3D 透视 + 景深淡化 + 镜面倒影，背景随选中游戏切换；手柄左右切封面、A 直接开始，焦点自动跟随新封面
@@ -17,22 +18,23 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.5-debug.apk`（约 80 MB）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.5.1-debug.apk`（约 80 MB）。
 
 ```bash
-adb install -r FreeGameHub-V1.5-debug.apk
+adb install -r FreeGameHub-V1.5.1-debug.apk
 ```
 
-覆盖安装保留数据（versionCode 3 → 4）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
+覆盖安装保留数据（versionCode 4 → 5）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
 
 ## 完整性校验
 
 | 文件 | SHA-256 |
 |---|---|
-| FreeGameHub-V1.5-debug.apk | `a77d014710e6e9798531151e9acb733780d5b8705e13668f01ae75e404bb0210` |
+| FreeGameHub-V1.5.1-debug.apk | `3b84b186e66b1d63cb182092e77fe9e964a2f6a6600eff261764720a99838f9a` |
 
 ## 版本历史
 
+- **V1.5.1**：卡内按钮对称布局——详情(左) · 下载/开始(中) · 收藏(右)，主按钮绝对居中
 - **V1.5**：海报级封面（11 张定制 key art）+ 信息做进封面卡片 + 66vh 巨幕封面 + 焦点导航适配
 - **V1.4**：影院级大厅精修——封面 52vh 主角化、背景压暗强暗角、倒影增强、开始按钮克制化、详情圆形图标化
 - **V1.3**：CoverFlow 封面传送带大厅 + 三套主题即时切换（霓虹街机 / 琥珀工业 / 深空影院）；安装包瘦身约 88 → 76 MB
