@@ -2,8 +2,9 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.15
+## 当前版本 V1.16
 
+- **应用自动更新（SP4）**：设置页新增「应用更新」区——车机上不再需要手动拷贝安装包。启动时静默检查线上版本，有新版本就显示版本号与更新说明，点「下载并安装」即可覆盖安装（保留已有数据与已装游戏）。下载完成后**必须校验 sha256**，不匹配绝不安装；检查与下载全在后台线程，不影响大厅渲染与游戏启动。**车机现实约束**：部分车机固件禁止拉起「未知来源」安装器或把开关藏在系统设置深处，此时应用自动把 APK 复制到 **Download 目录**并提示用文件管理器打开安装（覆盖安装，数据不丢）
 - **车机性能：图片资源瘦身（卡顿主因）**：游戏封面原为 1664×2496 JPEG（约 1.2MB/张），车机屏上实际只显示约 316×475px——解码后 10 张封面就占约 166MB 位图，是「778G 也卡」的真正原因。全部改为 **720×1080 WebP**（12MB → 0.7MB），全部图片加 `decoding="async"` + 首屏图 `fetchPriority="high"`、非首屏 `loading="lazy"`；前端资源 89MB → 28MB，安装包 **69MB → 22.8MB**，画面观感不变
 - **车机诊断面板（无需 root/ADB）**：设置页新增「车机诊断」，直接显示系统视角数据——音频焦点/媒体会话、**全部输出端口（车机多路为 BUS 通道）**、当前活跃播放被路由到哪、系统是否识别手柄、内存与 BYD 组件列表，并探测本机是否存在 BYD 专属音频通道接口；「导出诊断报告」写入剪贴板即可粘贴给开发者，用于定位「无声 / 进不了游戏模式 / 连手柄泛白」
 - **车机无声修复（音频路由）**：依据真车诊断报告——焦点已授予、媒体会话已激活且存在活跃播放流，但车机把第三方媒体流默认路由到**不接喇叭的通道**（输出列表里并列着「听筒/通话」口）。本版做三件事：①注册 **MediaBrowserService** 让车机 CarAudioService 把应用识别为媒体源并分配扬声器 zone；②新增**音频输出路由**：常驻 MEDIA+CONTENT_TYPE_MUSIC 静音流并 `setPreferredDevice` 显式绑定通道，读取**实际路由设备**；③设置页「车机诊断」新增**音频输出通道选择器**，车机上无需 ADB 即可手动切通道（默认锚定内置扬声器）。另修正手柄枚举（改用公开 API，此前真车显示 0 个是隐藏 API 被拦）
@@ -39,18 +40,19 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.15-debug.apk`（约 23 MB，比上一版瘦 67%）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.16-debug.apk`（约 23 MB，比最初版瘦 67%）。
 
 ```bash
-adb install -r FreeGameHub-V1.15-debug.apk
+adb install -r FreeGameHub-V1.16-debug.apk
 ```
 
-覆盖安装保留数据（versionCode 14 → 15）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
+覆盖安装保留数据（versionCode 15 → 16）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
 
 ## 完整性校验
 
 | 文件 | SHA-256 |
 |---|---|
+| FreeGameHub-V1.16-debug.apk | `34d4105ef226f3c6ef411a7e832d5b7a64d75a3c07f562f5ed0003bef998f615` |
 | FreeGameHub-V1.15-debug.apk | `e1dc7797361560c6d1942bd2b2c7cfdb8dd7f4afb676569b978fb68ebce52ef1` |
 | FreeGameHub-V1.14-debug.apk | `45f4e039e7e73ed9510874f8d665c7b37ae307840715c14754f13a65ccf15322` |
 | FreeGameHub-V1.13-debug.apk | `b582df7227303f5758a808634af0149fbb0a9168e323a4db587177a31e20a96d` |
@@ -63,6 +65,7 @@ adb install -r FreeGameHub-V1.15-debug.apk
 
 ## 版本历史
 
+- **V1.16**：应用自动更新——设置页新增「应用更新」区（检查新版本 → 下载 → sha256 校验 → 拉起系统安装器覆盖安装，保留数据）；原生新增 `AppUpdater.kt`（后台线程下载、sha256 校验、FileProvider 授权、安装器被拒时降级复制到 Download 目录）；服务端新增 `/api/app-update` 与 `/app/<file>`（Range 断点续传）、后台「应用更新」上传区；修掉服务端 `POST /api/admin/app-release` 处理代码误写在 `do_GET` 里导致实际 404 的缺陷
 - **V1.15**：平台闭环——客户端接远程目录（远程覆盖内置、未覆盖内置保留、断网降级）+ 远程游戏在线直玩 + 埋点上报；服务端新增在线可玩托管 `/play/`、埋点接口与统计接口，后台新增「统计」区（每款游戏今日人数/次数/时长 + 近 7 日趋势）；并修掉 `/api/catalog` 缺 CORS 头导致车机拉不到目录的问题
 - **V1.14**：车机音频二分诊断——A/B 对照（`<audio>` vs WebAudio）+「网页音频走媒体通道」试验开关 + 通道扫描新增 contentType 对照行；并修掉原生测试音 write() 阻塞调用线程的缺陷
 - **V1.13**：车机音频全通道扫描——纠正通道语义（BYD 通道＝legacy stream type 1–20，非输出设备），1–20 逐路播测试音并给出实际路由设备与系统音量，可逐路试听/绑定
