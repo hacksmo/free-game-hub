@@ -2,11 +2,12 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.10
+## 当前版本 V1.11
 
 - **车机性能：图片资源瘦身（卡顿主因）**：游戏封面原为 1664×2496 JPEG（约 1.2MB/张），车机屏上实际只显示约 316×475px——解码后 10 张封面就占约 166MB 位图，是「778G 也卡」的真正原因。全部改为 **720×1080 WebP**（12MB → 0.7MB），全部图片加 `decoding="async"` + 首屏图 `fetchPriority="high"`、非首屏 `loading="lazy"`；前端资源 89MB → 28MB，安装包 **69MB → 22.8MB**，画面观感不变
 - **车机诊断面板（无需 root/ADB）**：设置页新增「车机诊断」，直接显示系统视角数据——音频焦点/媒体会话、**全部输出端口（车机多路为 BUS 通道）**、当前活跃播放被路由到哪、系统是否识别手柄、内存与 BYD 组件列表，并探测本机是否存在 BYD 专属音频通道接口；「导出诊断报告」写入剪贴板即可粘贴给开发者，用于定位「无声 / 进不了游戏模式 / 连手柄泛白」
 - **车机无声修复（音频路由）**：依据真车诊断报告——焦点已授予、媒体会话已激活且存在活跃播放流，但车机把第三方媒体流默认路由到**不接喇叭的通道**（输出列表里并列着「听筒/通话」口）。本版做三件事：①注册 **MediaBrowserService** 让车机 CarAudioService 把应用识别为媒体源并分配扬声器 zone；②新增**音频输出路由**：常驻 MEDIA+CONTENT_TYPE_MUSIC 静音流并 `setPreferredDevice` 显式绑定通道，读取**实际路由设备**；③设置页「车机诊断」新增**音频输出通道选择器**，车机上无需 ADB 即可手动切通道（默认锚定内置扬声器）。另修正手柄枚举（改用公开 API，此前真车显示 0 个是隐藏 API 被拦）
+- **车机通道测试音（无声问题决定性实验）**：设置页「车机诊断 → 音频输出通道」新增「播放通道测试音」，走与锚定流同一条 `USAGE_MEDIA + CONTENT_TYPE_MUSIC` 的 AudioTrack 播 1kHz/0.6s 真实音频（播完自动恢复静音）。**能听到 → 通道通、问题在 WebAudio 的 contentType（车机报告里活跃流是未声明类型）；听不到 → 该通道被车机音频策略丢弃**，两条路各修各的，不再靠猜
 - **详情页一屏化**：游戏详情重做为横向三栏（海报｜信息｜预览），一屏显示完整、无需上下滚动；简介自适应行数、规格压成 chips、版本移顶栏、安装状态做海报徽标；1280×720 / 1024×600 / 1920×1080 三档分辨率实测均不溢出，保留三套主题与手柄导航
 - **画面缩放锁定**：viewport 锁 `maximum-scale=1 / user-scalable=no` + WebView 关闭缩放支持/控件/overview 模式，页面恒 100% 贴合屏幕，修复车机「一会全屏一会放大」的缩放漂移
 - **通知单条化**：提示气泡改为「新替旧、单条显示」，修复「安装完成」与「返回大厅」两条提示在回大厅瞬间上下堆叠、遮挡封面的问题（实测中央封面始终精确居中）
@@ -33,18 +34,19 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.10-debug.apk`（约 23 MB，比上一版瘦 67%）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.11-debug.apk`（约 23 MB，比上一版瘦 67%）。
 
 ```bash
-adb install -r FreeGameHub-V1.10-debug.apk
+adb install -r FreeGameHub-V1.11-debug.apk
 ```
 
-覆盖安装保留数据（versionCode 9 → 10）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
+覆盖安装保留数据（versionCode 10 → 11）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
 
 ## 完整性校验
 
 | 文件 | SHA-256 |
 |---|---|
+| FreeGameHub-V1.11-debug.apk | `0ce2e6c9295e83efedac2111d10713e3cad84e46b8d20a0643ee6605d08d113a` |
 | FreeGameHub-V1.10-debug.apk | `79b3f2b7aa2909f1131771853d8e751eb18cc6084f5536f73991642af40b0193` |
 | FreeGameHub-V1.9-debug.apk | `6780fed0be61444817f4f7831216dea79a2564619e9fc3265c5b9b8bdb4ce09d` |
 | FreeGameHub-V1.8-debug.apk | `0c9b5a1f02d83f822061c97ea49587a8f220f79c37cc69b55503342e367bb0dd` |
@@ -52,6 +54,7 @@ adb install -r FreeGameHub-V1.10-debug.apk
 
 ## 版本历史
 
+- **V1.11**：车机无声定位增强——新增原生「通道测试音」做决定性 A/B（能听到=通道通、问题在 WebAudio contentType；听不到=通道被丢弃），手柄枚举改用公开 API，默认锚定内置扬声器
 - **V1.10**：车机音频路由修复——注册 MediaBrowserService 成为车机媒体源（CarAudioService 分配扬声器 zone）+ 常驻静音媒体流显式绑定输出设备 + 设置页音频输出通道选择器（无需 ADB 可手动切）+ 手柄枚举改用公开 API
 - **V1.9**：车机性能专项——游戏封面/截图全量转 WebP 并降采样（前端 89MB → 28MB，安装包 69MB → 22.8MB），全部图片异步解码与首屏优先；新增「车机诊断」面板（输出端口/BUS 通道、活跃播放路由、手柄识别、BYD 组件与音频接口探测、一键导出报告），用于定位车机无声 / 进不了游戏模式 / 手柄泛白
 - **V1.8**：详情页排版按反馈回调——恢复上一版左对齐、舒展的一屏布局，按钮保持收敛（34–40px、不沉底、紧跟简介），并把信息栏整组在栏内垂直居中（修正「太靠上」）；三档分辨率实测上隙≈下隙、无裁剪
