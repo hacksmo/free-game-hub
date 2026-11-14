@@ -9,6 +9,7 @@ var mediaMode=false;
 var bridgeState='off';
 var mediaDest=null;
 var mediaEl=null;
+var mediaEls=[];
 var lastTest={element:null,webaudio:null};
 /* ---- 网页音频 PCM 中转（车机无声的正解）----
    做法：在 WebAudio 图的**末端**插一个 ScriptProcessorNode，
@@ -18,12 +19,16 @@ var lastTest={element:null,webaudio:null};
 
    注意：ScriptProcessor 是 deprecated API，但它在 Android WebView 上
    唯一能用（AudioWorklet 需要单独的 worklet 文件 URL，在 assets 里加载路径麻烦）。
-   采样率 24000 / 单声道 / PCM16，与原生 CarAudioRelay 对齐。 */
+
+   ★ 采样率：AudioContext 默认 48000（真车实测），原生播放端是 24000。
+     速率不一致会变调 + 断续 —— 所以把 ctx.sampleRate 一起传过去，由原生做重采样。 */
 var PCM_RATE=24000;
 var relayOn=false;
 var relayState='off';
 var relayChunks=0;
 var relaySamples=0;
+/* AudioContext 的实际采样率：首个 context 建立后才有值 */
+var relaySrcRate=48000;
 function relaySend(samples){
   try{
     var n=samples.length;
@@ -40,7 +45,7 @@ function relaySend(samples){
     for(var j=0;j<bytes.length;j+=CH){
       bin+=String.fromCharCode.apply(null,bytes.subarray(j,j+CH));
     }
-    window.CARCADE_NATIVE && window.CARCADE_NATIVE.relayPush(btoa(bin), n);
+    window.CARCADE_NATIVE && window.CARCADE_NATIVE.relayPush(btoa(bin), n, relaySrcRate);
     relayChunks++;relaySamples+=n;
   }catch(e){}
 }
@@ -72,27 +77,44 @@ function makeRelayNode(ctx){
   }catch(e){return null;}
 }
 function tryResume(c){try{if(c&&c.state==='suspended'){var p=c.resume();if(p&&p.catch){p.catch(function(){});}}}catch(e){}}
-function resumeAll(){for(var i=0;i<contexts.length;i++){tryResume(contexts[i]);}if(mediaEl){try{mediaEl.play();}catch(e){}}}
+function resumeAll(){for(var i=0;i<contexts.length;i++){tryResume(contexts[i]);}for(var m=0;m<mediaEls.length;m++){try{mediaEls[m].play();}catch(e){}}}
 function track(c){if(contexts.indexOf(c)<0){contexts.push(c);}tryResume(c);}
+/* 记录 AudioContext 的实际采样率（真车实测 48000），原生端据此重采样 */
+function noteRate(c){try{if(c&&c.sampleRate){relaySrcRate=c.sampleRate;}}catch(e){}}
 function readMode(){try{return localStorage.getItem(MODE_KEY)==='media';}catch(e){return false;}}
 function isSinkSupported(){try{return typeof AC==='function' && 'sinkId' in (new AC().constructor.prototype===undefined?{}:{});}catch(e){}}
 function createMediaDest(ctx){try{return ctx.createMediaStreamDestination();}catch(e){return null;}}
-function ensureBridge(){
-  if(bridgeState==='ready')return true;
-  if(bridgeState==='failed')return false;
+/* 把某个 context 的输出改道到「媒体通道」：
+   在**同一个 context** 里建 MediaStreamAudioDestinationNode，
+   覆写 ctx.destination 指向它，再用 <audio>.srcObject 播放这条流。
+
+   这样网页音频走的是 Chromium 的**媒体元素管线**（与 <video>/<audio> 同一条路），
+   而真车实测：浏览器播视频有声音、WebAudio 没声音 —— 媒体管线正是车机放行的那条。
+
+   ★ 之前的实现错在：MediaStreamDestination 建在一个**独立的探测 context** 里，
+     游戏自己的 context 根本没接进去，等于没开过。 */
+function attachMedia(ctx){
+  if(!ctx||ctx.__carcadeMedia)return false;
   try{
-    if(!AC)throw new Error('no AudioContext');
-    var probe=new AC();
-    if(!probe.createMediaStreamDestination)throw new Error('no MediaStreamDestination');
-    var dest=createMediaDest(probe);
-    if(!dest)throw new Error('dest null');
+    var dest=createMediaDest(ctx);
+    if(!dest)return false;
     var el=document.createElement('audio');
     el.autoplay=true;el.setAttribute('playsinline','');el.volume=1;el.muted=false;
     el.srcObject=dest.stream;
-    mediaDest=dest;mediaEl=el;
-    bridgeState='ready';
-    return true;
-  }catch(e){bridgeState='failed: '+(e&&e.message?e.message:'unknown');return false;}
+    try{document.body&&document.body.appendChild(el);}catch(e){}
+    var pr=el.play();
+    if(pr&&pr.catch){pr.catch(function(){});}
+    try{
+      Object.defineProperty(ctx,'destination',{
+        configurable:true,
+        get:function(){return dest;}
+      });
+      ctx.__carcadeMedia=dest;
+      ctx.__carcadeMediaEl=el;
+      mediaEls.push(el);
+      return true;
+    }catch(e){return false;}
+  }catch(e){return false;}
 }
 /* 给一个 context 装上 PCM 采集节点，并把 context.destination 指向它。
    这样游戏里 connect(ctx.destination) 的声音会先进采集节点被我们截获。 */
@@ -108,24 +130,22 @@ function attachRelay(ctx){
       get:function(){return rn;}
     });
     ctx.__carcadeRelay=rn;
+    /* 记下这个 context 的实际采样率（AudioContext 默认 48000）。
+       必须在装采集节点时记 —— 采集节点拿到的就是该速率的采样，
+       原生播放端是 24000，不传过去就会变调 + 断续。 */
+    noteRate(ctx);
     return true;
   }catch(e){return false;}
 }
 function makeContext(){
+  var c=new AC();track(c);noteRate(c);
+  /* 媒体通道与 PCM 中转都是「改写 destination」，互斥：
+     同时开会让后一个覆盖前一个，行为不可预期。 */
   if(mediaMode){
-    try{
-      if(ensureBridge()&&mediaDest){
-        /* 注意：sinkId 要的是**输出设备 id 字符串**，不是节点对象。
-           之前误传了 MediaStreamAudioDestinationNode，Chromium 会抛异常并
-           fallback 成普通 AudioContext —— 那个「走媒体通道」开关等于没开过。 */
-        var c=new AC();
-        track(c);
-        return c;
-      }
-    }catch(e){bridgeState='failed: '+(e&&e.message?e.message:'unknown');}
+    if(!attachMedia(c))bridgeState='failed: media attach';
+  }else if(relayOn){
+    try{attachRelay(c);}catch(e){}
   }
-  var c=new AC();track(c);
-  if(relayOn){try{attachRelay(c);}catch(e){}}
   return c;
 }
 function PatchedAC(){return makeContext();}
@@ -133,7 +153,6 @@ PatchedAC.prototype=AC?AC.prototype:{};
 try{window.AudioContext=PatchedAC;}catch(e){}
 try{if(window.webkitAudioContext){window.webkitAudioContext=PatchedAC;}}catch(e){}
 mediaMode=readMode();
-if(mediaMode){ensureBridge();}
 try{relayOn=localStorage.getItem(RELAY_KEY)==='on';}catch(e){relayOn=false;}
 if(relayOn){try{window.CARCADE_NATIVE&&window.CARCADE_NATIVE.relayEnable(true);}catch(e){}}
 var evs=['pointerdown','touchstart','mousedown','keydown','click'];
@@ -215,7 +234,23 @@ window.__carcadeAudio={
   setMode:function(on){
     try{localStorage.setItem(MODE_KEY,on?'media':'off');}catch(e){}
     mediaMode=!!on;
-    if(mediaMode){ensureBridge();}
+    /* 对**已有**的 context 也立即改道，否则用户开了开关但当前页面没声音，
+       会以为开关没用（需要重启才生效的体验很差）。 */
+    for(var i=0;i<contexts.length;i++){
+      try{
+        if(mediaMode){attachMedia(contexts[i]);}
+        else if(contexts[i].__carcadeMedia){
+          /* 关掉媒体通道：恢复真正的 destination */
+          var c=contexts[i];
+          try{
+            var real=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(c),'destination');
+            delete c.__carcadeMedia;
+            if(c.__carcadeMediaEl){try{c.__carcadeMediaEl.pause();}catch(e){}}
+          }catch(e){}
+        }
+      }catch(e){}
+    }
+    bridgeState=mediaMode?'media':'off';
     return mediaMode;
   },
   /* ---- PCM 中转（车机无声的正解）---- */

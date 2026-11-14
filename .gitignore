@@ -13,6 +13,8 @@ game-library-excluded/
 sources/
 *.apk
 *.zip
+# releases/ 是本地 APK 归档（v1.17 等），持久保存构建产物，同样不进 git
+releases/
 
 # 截图 / 实测输出
 screenshots/
