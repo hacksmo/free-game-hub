@@ -91,5 +91,5 @@ adb install -r FreeGameHub-V1.17-debug.apk
 ## 说明
 
 - 本仓库为**公开分发**用途：只含说明文档与发布产物索引，**不含应用源码**；APK 通过 Release 附件提供，游戏资源不进 git。
-- 文档站：<https://hacksmo.github.io/free-game-hub/>（`site/`，由 GitHub Pages 托管）。
+- 文档站：<https://hacksmo.github.io/free-game-hub/>（`docs/`，由 GitHub Pages 托管）。
 - 包内个别游戏原作者未声明许可证，商用 / 公开分发前请先取得授权。
