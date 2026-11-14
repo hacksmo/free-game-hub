@@ -23,3 +23,5 @@ tools/*results*.json
 # 系统 / 编辑器
 .DS_Store
 *.log
+# SDD 临时工作区
+.superpowers/
