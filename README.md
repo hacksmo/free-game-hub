@@ -2,13 +2,16 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.18
+## 当前版本 V1.19
 
 - **网页音频 PCM 中转不再卡顿（采样率对齐）**：真车反馈「有声音但特别卡顿」，根因是**采样率不匹配**——网页 AudioContext 是 48000Hz、原生播放端是 24000Hz，速率对不上就变调 + 断续。本版把 AudioContext 的实际采样率随 PCM 一起传给原生，由原生做线性插值重采样（48k→24k，不在 JS 线程里做，弱车机友好）；播放前先攒够 150ms 再开播，避免 AudioTrack 一开始就欠载
 - **「网页音频走媒体通道」开关真正生效**：此前 MediaStreamDestination 建在一个**独立的探测 context** 里，游戏自己的 context 根本没接进去，那个开关等于没开过。现改为在**每个游戏 context 内部**建 destination 并覆写该 context 的 `destination` —— 网页音频由此走 Chromium 的媒体元素管线（与浏览器播视频同一条路，正是真机确认放行的路径）；开关对已有页面立即生效，不必重启应用
 - **启动白屏闪烁消除**：WebView 默认背景为白，页面加载完成前会先闪一下白屏再进 Logo 页；现将 WebView 背景设为与应用主题一致的深色
 - **大厅滑动性能优化（合成层 10 → 1）**：实测 1920×984 @1.5x、CPU 降速 4 倍下 **60fps 满帧、零掉帧、零长任务**。原 10 张卡全部声明 `will-change`（= 10 个合成层），现只给中心卡与滑动中的卡留层；倒影的 `blur(1px)` + `mask-image` 渐变遮罩每帧都要重新光栅化，性能模式改为「无模糊 + CSS 渐变盖底边」的廉价做法，保留湿地面的质感
 - **诊断新增 WebView 图形能力与屏幕刷新率**：若车机 WebView 实际走软件渲染（SwiftShader），则**换任何前端框架都救不了大厅卡顿**，只能改用原生 View / SurfaceView —— 这份数据能一锤定音，避免盲目重构
+- **内置模拟器（放自己的经典游戏进去）**：游戏厅新增「模拟器」卡片，内置 EmulatorJS 4.2.3 运行时与 NES / Game Boy / GBA 三个核心（FCEUmm、Gambatte、mGBA）。**应用不含任何第三方游戏内容** —— 你把自己拥有的 ROM 放进 `rom/` 目录，或在后台直接投放，服务端托管后车机大厅随即出现该卡片，**手柄 / 触摸 / 键盘**全支持。核心（wasm）按需加载，不进每个游戏包
+- **模拟器 ROM 投放（后台）**：管理后台新增「投放模拟器 ROM」区 —— 选一个 `.nes` / `.gb` / `.gba` 文件即可自动打包托管；服务端同时托管一份模拟器宿主（`/retro/`），让跨域 iframe 里的远程 ROM 也能加载到宿主与核心
+- **APK 瘦身 12.8MB**：内置游戏的 zip 离线包与游戏本体是同一份内容的重复。Android WebView 不支持 Service Worker，`/__offline/<id>/` 由原生直接从 assets 供给，所以内置游戏**无需下载** —— 客户端在原生环境直接标为「已安装」，省一次下载也让 APK 不用重复打包
 - **网页音频 PCM 中转（车机无声的正解）**：真车对照显示——**车机浏览器播放视频有声音、别的客户端也有声音，只有本应用无声**，而原生 AudioTrack 在 legacy stream type 1–20 上逐路都能听到。说明车机音频系统本身正常，被丢弃的是 **Chromium WebView 那条音频流**（诊断报告里它的 contentType 是 `TYPE_0` 未声明，而浏览器走 MediaPlayer 会声明 MOVIE/MUSIC）。本版不再赌路由，改为**绕过它**：网页里用 ScriptProcessor 采出渲染后的 PCM → 经 JS 桥交给原生 → 用**真车已验证 1–20 全部可闻**的 legacy AudioTrack 播放。设置页新增「网页音频 PCM 中转」开关（可运行时切换，不用重装）
 - **修掉诊断的空测试音（此前判定无效）**：A/B 对照用的 WAV 采样数据长度为 0（44 字节只有头没有采样），A 组「HTMLMediaElement 测试音」**从来没真正发出过声音** —— 报告里 `duration=0`、`advanced=false` 是必然结果，那次结论不成立。现改为现场合成 0.5s/1kHz 真实音频，复测 `duration=0.5`、`advanced=true`
 - **修掉「网页音频走媒体通道」开关（等于没开过）**：实现里 `new AudioContext({sinkId: mediaDest})` 传的是节点对象，而 `sinkId` 要的是**输出设备 id 字符串**，Chromium 抛异常后静默回落成普通 AudioContext —— 所以「试过没用」并不能证伪该假说
@@ -41,7 +44,7 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 - **信息做进封面卡片**：游戏标题 + 分类/手柄/体积眉题 + 开始/下载按钮 + 详情 + 收藏，全部收进中央封面底部的渐变信息层——封面即海报，海报即界面；删除卡下独立信息区，中央封面 52vh → **66vh** 巨幕化
 - **CoverFlow 封面传送带大厅**：中央封面最大、左右 3D 透视 + 景深淡化 + 镜面倒影，背景随选中游戏切换；手柄左右切封面、A 直接开始，焦点自动跟随新封面
 - **内置三套主题风格，软件内即时切换**：霓虹街机（默认）/ 琥珀工业 / 深空影院；顶栏调色盘入口 + 设置页主题区，重启后自动保持
-- **10 款游戏**，全部支持手柄（标准映射）+ 触摸 / 键盘
+- **12 款游戏**（含内置模拟器），全部支持手柄（标准映射）+ 触摸 / 键盘
 - 应用 UI 与游戏界面全面中文化
 - 离线可玩：游戏包本地加载，零互联网请求；离线包不再重复携带封面，APK 仅增约 4MB
 - 手柄友好：大厅焦点导航、游戏中**长按 B 退出**（防误触）、设置页**手柄按键诊断面板**
@@ -50,18 +53,21 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.18-debug.apk`（约 23 MB，比最初版瘦 67%）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.19-debug.apk`（约 34 MB，含内置模拟器）。
 
 ```bash
-adb install -r FreeGameHub-V1.18-debug.apk
+adb install -r FreeGameHub-V1.19-debug.apk
 ```
 
-覆盖安装保留数据（versionCode 17 → 18）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
+覆盖安装保留数据（versionCode 18 → 19）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
 
 ## 完整性校验
 
 | 文件 | SHA-256 |
 |---|---|
+| FreeGameHub-V1.19-debug.apk | `4881e77b0753f199bc33e065002faa660d36520fb171dc5022f781bd9515e07b` |
+| FreeGameHub-V1.18-debug.apk | `0562e4d4868899675325ec88f91df10d0675eb8f99187f40d3e85f2314dcbe80` |
+| FreeGameHub-V1.17-debug.apk | `0c7a466d57e1549fbd20e8f01551f3daa13cf1586e53084e878aef1cf0fe5104` |
 | FreeGameHub-V1.16-debug.apk | `34d4105ef226f3c6ef411a7e832d5b7a64d75a3c07f562f5ed0003bef998f615` |
 | FreeGameHub-V1.15-debug.apk | `e1dc7797361560c6d1942bd2b2c7cfdb8dd7f4afb676569b978fb68ebce52ef1` |
 | FreeGameHub-V1.14-debug.apk | `45f4e039e7e73ed9510874f8d665c7b37ae307840715c14754f13a65ccf15322` |
@@ -75,6 +81,7 @@ adb install -r FreeGameHub-V1.18-debug.apk
 
 ## 版本历史
 
+- **V1.19**：新增内置模拟器（EmulatorJS + NES/GB/GBA 三核心，放自己的 ROM 就能玩）与后台 ROM 投放（服务端托管宿主，跨域 iframe 也能跑）；内置游戏免下载，APK 瘦身 12.8MB
 - **V1.18**：修网页音频 PCM 中转的卡顿（AudioContext 48k 与原生 24k 采样率不匹配 → 变调断续；现传采样率由原生重采样 + 播放前 150ms 预缓冲）；修「网页音频走媒体通道」开关（destination 改建在游戏自己的 context 里）；消除启动白屏闪烁（WebView 深色背景）；大厅滑动优化（合成层 10→1、倒影去掉离屏合成，实测 60fps 满帧）；诊断新增 WebView 图形能力与刷新率
 - **V1.17**：车机无声攻坚——新增**网页音频 PCM 中转**（网页采 PCM → 原生 legacy AudioTrack 播放，绕开 Chromium 输出路由）；修掉诊断 WAV 为空导致的无效 A/B 判定；修掉「网页音频走媒体通道」开关的 `sinkId` 误用；诊断补上活跃音频流的 `deviceId`/`deviceName`；音频 shim 抽为独立资源文件
 - **V1.16**：应用自动更新——设置页新增「应用更新」区（检查新版本 → 下载 → sha256 校验 → 拉起系统安装器覆盖安装，保留数据）；原生新增 `AppUpdater.kt`（后台线程下载、sha256 校验、FileProvider 授权、安装器被拒时降级复制到 Download 目录）；服务端新增 `/api/app-update` 与 `/app/<file>`（Range 断点续传）、后台「应用更新」上传区；修掉服务端 `POST /api/admin/app-release` 处理代码误写在 `do_GET` 里导致实际 404 的缺陷

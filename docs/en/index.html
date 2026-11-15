@@ -30,7 +30,7 @@
 
 <section class="hero">
   <div class="meta">
-    <span class="badge">Public beta · <bdi id="ver">1.17</bdi></span>
+    <span class="badge">Public beta · <bdi id="ver">1.19</bdi></span>
   </div>
   <h1>Your head unit.<br>Your arcade.</h1>
   <p class="intro">A landscape game centre for BYD DiLink and other Android car head units. Open and play, every game supports a gamepad, works offline, and needs no account, no login and no subscription.</p>
@@ -76,15 +76,18 @@
 
   <section class="card">
     <span class="eyebrow">02</span>
-    <h2>What's new in 1.17</h2>
+    <h2>What's new in 1.19</h2>
     <ul>
-      <li><strong>Web audio PCM relay</strong>: web audio no longer relies on Chromium's own output route (dropped by the head unit). It is captured as PCM in the page and played by a native AudioTrack — a path verified audible on all channels 1–20 on a real car.</li>
-      <li><strong>Fixed the empty diagnostic tone</strong>: the WAV used for the A/B comparison had a zero-length data chunk, so group A never produced any sound and that comparison was invalid. It now synthesises real audio on the fly.</li>
-      <li><strong>Diagnostics now report where audio routes</strong>: every active playback stream carries a deviceId and device name.</li>
-      <li><strong>Fixed the "web audio via media channel" switch</strong>: it passed a node object where a device id string was required, so Chromium threw and silently fell back — the switch never actually did anything.</li>
-      <li>The audio shim now lives in its own asset file, so the app and the automated probe run the exact same code.</li>
+      <li><strong>Built-in emulator</strong>: a new "Emulator" card in the hall, with the EmulatorJS 4.2.3 runtime and three cores (FCEUmm for NES, Gambatte for Game Boy, mGBA for GBA). <strong>The app ships no third-party game content</strong> — drop your own ROMs into the <code>rom/</code> folder or upload them from the admin page; gamepad, touch and keyboard all work.</li>
+      <li><strong>Upload ROMs from the admin page</strong>: pick a <code>.nes</code> / <code>.gb</code> / <code>.gba</code> file and the server packages and hosts it — the card then shows up in the car hall on the next refresh.</li>
+      <li><strong>Web audio PCM relay no longer stutters</strong>: the real car reported "sound, but very choppy". The cause was a sample-rate mismatch — the page's AudioContext runs at 48000Hz while the native output was 24000Hz. The actual rate is now passed along with the PCM and resampled natively (48k→24k, off the JS thread so slow head units stay responsive), and playback waits for 150ms of buffered audio.</li>
+      <li><strong>The "web audio via media channel" switch now actually works</strong>: it used to build the MediaStreamDestination inside a separate probe context that the game's own context never connected to — so the switch had never been on. It is now created inside each game context and that context's <code>destination</code> is overridden.</li>
+      <li><strong>No more white flash on startup</strong>: the WebView's default white background flashed before the splash appeared; it now matches the app's dark theme.</li>
+      <li><strong>Faster lobby scrolling</strong>: composited layers dropped from 10 to 1 (only the centre card and the one being dragged keep a layer) and the reflection no longer re-rasterises offscreen every frame. Measured at 1920×984 @1.5x with 4× CPU throttling: a solid 60fps, zero dropped frames, zero long tasks.</li>
+      <li><strong>APK is 12.8MB smaller</strong>: the bundled zip of each built-in game duplicated the game itself, and Android WebView has no Service Worker, so built-in games never needed downloading anyway — they are now simply marked as installed, saving both a download and the duplicated payload.</li>
+      <li>New game "Goldlift" (original): a one-button grapple-mining game, 60 seconds a round. Diagnostics also now report the WebView's graphics capability and display refresh rate.</li>
     </ul>
-    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.17">Release notes and checksums ↗</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.19">Release notes and checksums ↗</a>
     <h3>Before you try it</h3>
     <p>This is a public beta. Head-unit firmware varies a lot, so audio, gamepads and the install flow may need per-car tuning. On slower units keep "head-unit performance mode" on (default): it disables the animated background and depth-of-field blur.</p>
   </section>
@@ -95,7 +98,7 @@
     <div>
       <h2>Highlights</h2>
       <ul>
-        <li>10 original games, all with gamepad support (standard mapping) plus touch and keyboard</li>
+        <li>12 built-in games (including the built-in emulator), all with gamepad support (standard mapping) plus touch and keyboard</li>
         <li>Plays offline: game bundles are loaded locally, so it keeps working without a connection</li>
         <li>CoverFlow cover-flow lobby, cinematic poster art and three built-in themes</li>
         <li>Detail pages fit on one screen — no scrolling needed</li>
@@ -145,7 +148,7 @@
   <nav>
     <a href="https://github.com/hacksmo/free-game-hub/blob/main/README.md">Documentation</a>
     <a href="https://github.com/hacksmo/free-game-hub">Source code</a>
-    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.17">Release notes and checksums</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.19">Release notes and checksums</a>
     <a href="https://github.com/hacksmo/free-game-hub/issues">Report an issue</a>
   </nav>
   <p>Independent project, not affiliated with BYD. All game content is original or uses permissively licensed assets. Install records, favourites and recent sessions stay on your device.</p>
