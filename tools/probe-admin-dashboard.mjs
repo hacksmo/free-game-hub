@@ -238,6 +238,71 @@ try {
 
   check('页面无 JS 异常', errors.length === 0, errors.slice(0, 2).join(' | '))
 
+  // ---------- 批量 ROM 投放 ----------
+  // 用 setInputFiles 直接喂多个文件，验证：多选 → 清单 → 逐项结果 → 目录出现
+  const romFiles = [
+    '/tmp/probe-roms/a.nes',
+    '/tmp/probe-roms/b.gb',
+    '/tmp/probe-roms/c.dat',   // 扩展名不支持 —— 应逐项标失败，不影响其它两个
+  ]
+  // puppeteer-core 没有 setInputFiles（那是 Playwright 的 API），
+  // 用 CDP 的 DOM.setFileInputFiles 走原生通道设置文件。
+  const cdp = await page.createCDPSession()
+  await page.evaluate(() => {
+    const el = document.getElementById('romFiles')
+    el.setAttribute('data-probe', '1')
+  })
+  const doc = await cdp.send('DOM.getDocument')
+  const node = await cdp.send('DOM.querySelector', {
+    nodeId: doc.root.nodeId, selector: '#romFiles[data-probe="1"]',
+  })
+  await cdp.send('DOM.setFileInputFiles', { nodeId: node.nodeId, files: romFiles })
+  await sleep(400)
+
+  const list = await page.evaluate(() => ({
+    rows: document.querySelectorAll('#romList .romrow').length,
+    info: document.getElementById('romSelectionInfo').textContent,
+    names: [...document.querySelectorAll('#romList .romrow .fn')].map(e => e.textContent),
+  }))
+  check('多选后渲染出逐项清单',
+    list.rows === 3 && list.names.includes('a.nes'),
+    `${list.rows} 行 · ${list.info}`)
+
+  // 填一个中文名
+  await page.evaluate(() => {
+    const inp = document.querySelector('#romList .romrow input')
+    inp.value = '我的测试游戏'
+    inp.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+
+  // 执行批量投放
+  await page.evaluate(() => addRoms())
+  await sleep(2500)
+
+  const result = await page.evaluate(() => ({
+    ok: document.querySelectorAll('#romResult .res.ok').length,
+    err: document.querySelectorAll('#romResult .res.err').length,
+    texts: [...document.querySelectorAll('#romResult .res')].map(e => e.textContent),
+    sum: document.querySelector('#romResult .tiny')?.textContent || '',
+  }))
+  check('批量投放：成功项与失败项分开列出',
+    result.ok === 2 && result.err === 1,
+    `成功 ${result.ok} 失败 ${result.err} · ${result.sum}`)
+  check('失败的坏文件带原因',
+    result.texts.some(t => t.includes('c.dat') && t.includes('平台')),
+    result.texts.filter(t => t.includes('c.dat')).join(' | '))
+  check('成功项显示中文名',
+    result.texts.some(t => t.includes('我的测试游戏')),
+    result.texts.filter(t => t.includes('我的测试游戏')).join(' | '))
+
+  // 目录里应出现这两款
+  const inCatalog = await page.evaluate(async () => {
+    const out = await api('/api/admin/games')
+    return out.games.map(g => g.id)
+  })
+  check('批量投放后目录出现新卡片',
+    inCatalog.length >= 2, inCatalog.join(', '))
+
   // 截图存档
   await page.screenshot({ path: '/tmp/admin-dashboard.png', fullPage: true })
 
