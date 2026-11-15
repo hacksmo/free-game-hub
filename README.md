@@ -2,8 +2,11 @@
 
 Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手柄，全面中文化，离线可玩。
 
-## 当前版本 V1.19
+## 当前版本 V1.20
 
+- **「星际猎手」改为 16:9 全屏（原来是 3:4 竖条）**：这款打飞机游戏原本是竖版 480×800，在车机 1920×984 上只占中间一条窄带、两侧全黑。现改为**按屏幕实际比例铺满整屏**：逻辑高度固定 640（与原版横屏时完全一致，精灵物理尺寸与纵向手感不变），逻辑宽度按屏宽比例拉宽，缩放后正好铺满、左右不留黑边。车机 1920×984 / 1280×720 / 1024×600 三档实测均铺满无黑边
+- **横向手感同步补偿（改宽度就得改速度）**：屏幕宽了 2.6 倍，若移动速度不变，横穿全屏要慢 2.6 倍，手感会明显变迟钝。玩家横向移动、鼠标跟随、触摸拖动，以及**敌方**的横向速度与敌弹横向分量，全部按宽度等比补偿 —— 宽屏下的躲避难度与竖版一致
+- **敌人密度补偿**：宽屏场地面积大了 2.6 倍，敌人数不变就会显得空、难度变低。每波敌人数按宽度成比例增加（第 1 关由 5 架变 12 架横贯全屏），屏幕上的敌人密度与原版一致；V 字阵型的间距也同步缩放，宽屏上不再挤在中间一小条
 - **网页音频 PCM 中转不再卡顿（采样率对齐）**：真车反馈「有声音但特别卡顿」，根因是**采样率不匹配**——网页 AudioContext 是 48000Hz、原生播放端是 24000Hz，速率对不上就变调 + 断续。本版把 AudioContext 的实际采样率随 PCM 一起传给原生，由原生做线性插值重采样（48k→24k，不在 JS 线程里做，弱车机友好）；播放前先攒够 150ms 再开播，避免 AudioTrack 一开始就欠载
 - **「网页音频走媒体通道」开关真正生效**：此前 MediaStreamDestination 建在一个**独立的探测 context** 里，游戏自己的 context 根本没接进去，那个开关等于没开过。现改为在**每个游戏 context 内部**建 destination 并覆写该 context 的 `destination` —— 网页音频由此走 Chromium 的媒体元素管线（与浏览器播视频同一条路，正是真机确认放行的路径）；开关对已有页面立即生效，不必重启应用
 - **启动白屏闪烁消除**：WebView 默认背景为白，页面加载完成前会先闪一下白屏再进 Logo 页；现将 WebView 背景设为与应用主题一致的深色
@@ -53,18 +56,19 @@ Android 车机 / 手机横屏游戏中心：打开即玩，全部游戏支持手
 
 ## 下载与安装
 
-到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.19-debug.apk`（约 34 MB，含内置模拟器）。
+到 [Releases](https://github.com/hacksmo/free-game-hub/releases) 下载 `FreeGameHub-V1.20-debug.apk`（约 23 MB，含内置模拟器）。
 
 ```bash
-adb install -r FreeGameHub-V1.19-debug.apk
+adb install -r FreeGameHub-V1.20-debug.apk
 ```
 
-覆盖安装保留数据（versionCode 18 → 19）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
+覆盖安装保留数据（versionCode 19 → 20）。包名 `net.hackmo.carcade`。旧版本 Release 原样保留，可随时回退。
 
 ## 完整性校验
 
 | 文件 | SHA-256 |
 |---|---|
+| FreeGameHub-V1.20-debug.apk | `78f7a6862bcbd04633a3585d324e2b78082d9f234b7099ac031aa0b7f99a26e7` |
 | FreeGameHub-V1.19-debug.apk | `4881e77b0753f199bc33e065002faa660d36520fb171dc5022f781bd9515e07b` |
 | FreeGameHub-V1.18-debug.apk | `0562e4d4868899675325ec88f91df10d0675eb8f99187f40d3e85f2314dcbe80` |
 | FreeGameHub-V1.17-debug.apk | `0c7a466d57e1549fbd20e8f01551f3daa13cf1586e53084e878aef1cf0fe5104` |
@@ -81,6 +85,7 @@ adb install -r FreeGameHub-V1.19-debug.apk
 
 ## 版本历史
 
+- **V1.20**：「星际猎手」改为 16:9 全屏（原本 3:4 竖条，车机上两侧全黑）；横向移动/鼠标/触摸与敌方横向速度、敌弹横向分量按宽度等比补偿（宽屏手感与竖版一致）；每波敌人数与 V 字阵型间距按宽度补偿（屏幕密度不变，难度不缩水）
 - **V1.19**：新增内置模拟器（EmulatorJS + NES/GB/GBA 三核心，放自己的 ROM 就能玩）与后台 ROM 投放（服务端托管宿主，跨域 iframe 也能跑）；内置游戏免下载，APK 瘦身 12.8MB
 - **V1.18**：修网页音频 PCM 中转的卡顿（AudioContext 48k 与原生 24k 采样率不匹配 → 变调断续；现传采样率由原生重采样 + 播放前 150ms 预缓冲）；修「网页音频走媒体通道」开关（destination 改建在游戏自己的 context 里）；消除启动白屏闪烁（WebView 深色背景）；大厅滑动优化（合成层 10→1、倒影去掉离屏合成，实测 60fps 满帧）；诊断新增 WebView 图形能力与刷新率
 - **V1.17**：车机无声攻坚——新增**网页音频 PCM 中转**（网页采 PCM → 原生 legacy AudioTrack 播放，绕开 Chromium 输出路由）；修掉诊断 WAV 为空导致的无效 A/B 判定；修掉「网页音频走媒体通道」开关的 `sinkId` 误用；诊断补上活跃音频流的 `deviceId`/`deviceName`；音频 shim 抽为独立资源文件

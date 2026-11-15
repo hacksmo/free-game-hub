@@ -30,7 +30,7 @@
 
 <section class="hero">
   <div class="meta">
-    <span class="badge">Public beta · <bdi id="ver">1.19</bdi></span>
+    <span class="badge">Public beta · <bdi id="ver">1.20</bdi></span>
   </div>
   <h1>Your head unit.<br>Your arcade.</h1>
   <p class="intro">A landscape game centre for BYD DiLink and other Android car head units. Open and play, every game supports a gamepad, works offline, and needs no account, no login and no subscription.</p>
@@ -76,18 +76,14 @@
 
   <section class="card">
     <span class="eyebrow">02</span>
-    <h2>What's new in 1.19</h2>
+    <h2>What's new in 1.20</h2>
     <ul>
-      <li><strong>Built-in emulator</strong>: a new "Emulator" card in the hall, with the EmulatorJS 4.2.3 runtime and three cores (FCEUmm for NES, Gambatte for Game Boy, mGBA for GBA). <strong>The app ships no third-party game content</strong> — drop your own ROMs into the <code>rom/</code> folder or upload them from the admin page; gamepad, touch and keyboard all work.</li>
-      <li><strong>Upload ROMs from the admin page</strong>: pick a <code>.nes</code> / <code>.gb</code> / <code>.gba</code> file and the server packages and hosts it — the card then shows up in the car hall on the next refresh.</li>
-      <li><strong>Web audio PCM relay no longer stutters</strong>: the real car reported "sound, but very choppy". The cause was a sample-rate mismatch — the page's AudioContext runs at 48000Hz while the native output was 24000Hz. The actual rate is now passed along with the PCM and resampled natively (48k→24k, off the JS thread so slow head units stay responsive), and playback waits for 150ms of buffered audio.</li>
-      <li><strong>The "web audio via media channel" switch now actually works</strong>: it used to build the MediaStreamDestination inside a separate probe context that the game's own context never connected to — so the switch had never been on. It is now created inside each game context and that context's <code>destination</code> is overridden.</li>
-      <li><strong>No more white flash on startup</strong>: the WebView's default white background flashed before the splash appeared; it now matches the app's dark theme.</li>
-      <li><strong>Faster lobby scrolling</strong>: composited layers dropped from 10 to 1 (only the centre card and the one being dragged keep a layer) and the reflection no longer re-rasterises offscreen every frame. Measured at 1920×984 @1.5x with 4× CPU throttling: a solid 60fps, zero dropped frames, zero long tasks.</li>
-      <li><strong>APK is 12.8MB smaller</strong>: the bundled zip of each built-in game duplicated the game itself, and Android WebView has no Service Worker, so built-in games never needed downloading anyway — they are now simply marked as installed, saving both a download and the duplicated payload.</li>
-      <li>New game "Goldlift" (original): a one-button grapple-mining game, 60 seconds a round. Diagnostics also now report the WebView's graphics capability and display refresh rate.</li>
+      <li><strong>"Starhunter" is now full-screen 16:9</strong>: this shoot-'em-up was designed as a 3:4 portrait game, so on a 1920×984 head unit it only filled a narrow strip down the middle with black bars on both sides. The logical canvas now follows the real screen ratio — the logical height stays at 640 (so sprites keep exactly the same physical size and the vertical feel is unchanged) while the logical width stretches to match, and the picture fills the whole screen edge to edge. Verified on 1920×984, 1280×720 and 1024×600 with no black bars.</li>
+      <li><strong>Horizontal feel compensated to match</strong>: the screen is now 2.6× wider, so leaving the speed unchanged would make crossing it take 2.6× longer — noticeably sluggish. Player movement, mouse follow, touch drag, and the enemies' horizontal speed and bullet drift are all scaled with the width, so dodging stays as tight as it was in portrait.</li>
+      <li><strong>Enemy density compensated</strong>: the playfield is 2.6× larger, so the same enemy count would look sparse and make the game easier. Enemies per wave now scale with the width, and the V-formation spacing scales too — the density on screen stays exactly as before.</li>
+      <li><strong>APK size fixed</strong>: the 1.19 package was unusually large (37 MB, with the game offline bundles duplicated); this release corrects that back to 23 MB.</li>
     </ul>
-    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.19">Release notes and checksums ↗</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.20">Release notes and checksums ↗</a>
     <h3>Before you try it</h3>
     <p>This is a public beta. Head-unit firmware varies a lot, so audio, gamepads and the install flow may need per-car tuning. On slower units keep "head-unit performance mode" on (default): it disables the animated background and depth-of-field blur.</p>
   </section>
@@ -148,7 +144,7 @@
   <nav>
     <a href="https://github.com/hacksmo/free-game-hub/blob/main/README.md">Documentation</a>
     <a href="https://github.com/hacksmo/free-game-hub">Source code</a>
-    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.19">Release notes and checksums</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.20">Release notes and checksums</a>
     <a href="https://github.com/hacksmo/free-game-hub/issues">Report an issue</a>
   </nav>
   <p>Independent project, not affiliated with BYD. All game content is original or uses permissively licensed assets. Install records, favourites and recent sessions stay on your device.</p>

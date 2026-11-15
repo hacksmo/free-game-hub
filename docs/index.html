@@ -30,7 +30,7 @@
 
 <section class="hero">
   <div class="meta">
-    <span class="badge">公开测试版 · <bdi id="ver">1.19</bdi></span>
+    <span class="badge">公开测试版 · <bdi id="ver">1.20</bdi></span>
   </div>
   <h1>你的车机。<br>你的游戏厅。</h1>
   <p class="intro">为比亚迪 DiLink 等安卓车机做的横屏游戏中心。打开即玩，全部游戏支持手柄，断网也能玩，不需要账号、不需要登录、不需要会员。</p>
@@ -76,18 +76,14 @@
 
   <section class="card">
     <span class="eyebrow">02</span>
-    <h2>1.19 更新内容</h2>
+    <h2>1.20 更新内容</h2>
     <ul>
-      <li><strong>内置模拟器</strong>：游戏厅新增「模拟器」卡片，内置 EmulatorJS 4.2.3 运行时与 NES / Game Boy / GBA 三个核心（FCEUmm、Gambatte、mGBA）。<strong>应用不含任何第三方游戏内容</strong> —— 你把自己拥有的 ROM 放进 <code>rom/</code> 目录或在后台直接投放就能玩；手柄 / 触摸 / 键盘全支持。</li>
-      <li><strong>后台投放 ROM</strong>：管理后台新增「投放模拟器 ROM」区，选一个 <code>.nes</code> / <code>.gb</code> / <code>.gba</code> 即可自动打包托管，服务端托管宿主后车机大厅刷新即出现该卡片。</li>
-      <li><strong>网页音频 PCM 中转不再卡顿</strong>：此前真车反馈「有声音但特别卡顿」，根因是采样率不匹配 —— 网页 AudioContext 是 48000Hz、原生播放端是 24000Hz。现把实际采样率随 PCM 一起传给原生，由原生做线性插值重采样（48k→24k，不在 JS 线程里做，弱车机友好），并在播放前攒够 150ms 再开播。</li>
-      <li><strong>「网页音频走媒体通道」开关真正生效</strong>：此前 MediaStreamDestination 建在一个独立的探测 context 里，游戏自己的 context 根本没接进去，那个开关等于没开过。现改为在每个游戏 context 内部建 destination 并覆写该 context 的 <code>destination</code>。</li>
-      <li><strong>启动白屏闪烁消除</strong>：WebView 默认背景为白，页面加载完成前会先闪一下白屏再进 Logo 页；现将 WebView 背景设为与应用主题一致的深色。</li>
-      <li><strong>大厅滑动性能优化</strong>：合成层由 10 个降到 1 个（只给中心卡与滑动中的卡留层），倒影去掉每帧重新光栅化的离屏合成。实测 1920×984 @1.5x、CPU 降速 4 倍下 60fps 满帧、零掉帧、零长任务。</li>
-      <li><strong>APK 瘦身 12.8MB</strong>：内置游戏的 zip 离线包与游戏本体是同一份内容的重复，而 Android WebView 不支持 Service Worker、内置游戏本就不必下载 —— 现在原生环境直接标为「已安装」，省一次下载也让 APK 不用重复打包。</li>
-      <li>新增游戏「黄金升降」：钩爪采矿玩法，60 秒一局，单键就能玩（原创）。诊断新增 WebView 图形能力与屏幕刷新率。</li>
+      <li><strong>「星际猎手」改为 16:9 全屏</strong>：这款打飞机游戏原本是 3:4 竖版，在车机 1920×984 上只占中间一条窄带、两侧全黑。现在按屏幕实际比例铺满整屏 —— 逻辑高度固定 640（精灵物理尺寸与纵向手感完全不变），逻辑宽度按屏宽比例拉宽，车机三档分辨率实测均无黑边。</li>
+      <li><strong>横向手感同步补偿</strong>：屏幕宽了 2.6 倍，若速度不变横穿全屏要慢 2.6 倍、手感变迟钝。玩家移动、鼠标跟随、触摸拖动，以及敌方横向速度与敌弹横向分量，全部按宽度等比补偿 —— 宽屏下的躲避难度与竖版一致。</li>
+      <li><strong>敌人密度补偿</strong>：场地面积大了 2.6 倍，敌人数不变就会显得空、难度变低。每波敌人数与 V 字阵型间距按宽度同步缩放，屏幕密度与原版相同。</li>
+      <li><strong>APK 体积修正</strong>：V1.19 的安装包异常偏大（37 MB，重复打包了游戏离线包），本版修正后回到 23 MB。</li>
     </ul>
-    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.19">发布说明与校验值 ↗</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.20">发布说明与校验值 ↗</a>
     <h3>试用前请了解</h3>
     <p>这是公开测试版。车机固件差异很大，音频、手柄与安装流程都可能需要逐车调试。弱车机建议保持「车机性能模式」开启（默认开），它会关掉背景持续动画与景深模糊。</p>
   </section>
@@ -148,7 +144,7 @@
   <nav>
     <a href="https://github.com/hacksmo/free-game-hub/blob/main/README.md">使用说明</a>
     <a href="https://github.com/hacksmo/free-game-hub">源代码</a>
-    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.19">发布说明与校验值</a>
+    <a href="https://github.com/hacksmo/free-game-hub/releases/tag/v1.20">发布说明与校验值</a>
     <a href="https://github.com/hacksmo/free-game-hub/issues">报告问题</a>
   </nav>
   <p>独立项目，与比亚迪无隶属关系。所有游戏内容均为原创或使用许可开源素材。安装记录、收藏与最近游玩仅保存在本机。</p>
