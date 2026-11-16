@@ -53,9 +53,28 @@ function relaySendInt16(buf,count,rate){
    直接决定声音能不能出去。
    AudioWorklet 的 process() 跑在**音频线程**，不受游戏主线程影响。
    Worklet 源码用 Blob URL 加载，不需要额外资源文件（assets 里配 worklet
-   路径在 WebView 下很麻烦，Blob 在 SDK 32 的 Chromium 96 上可用）。 */
+   路径在 WebView 下很麻烦，Blob 在 SDK 32 的 Chromium 96 上可用）。
+
+   ★ 另一个卡顿源（v1.23 修）：process() 每 128 帧就被调用一次，旧实现**每次都
+   postMessage + base64 + 过 JS 桥**，等于每秒 375 次跨语言调用，全部落在主线程上。
+   车机诊断报告里「已送 12076 块 / 1545728 采样」正是 128 样本一块 ——
+   主线程被这 375 次/秒的调用切成碎片，rAF 帧间隔必然抖。
+   现在在音频线程里累积到 2048 帧（约 43ms）再发一次，过桥次数降到 1/16。 */
 var WORKLET_SRC=[
 "class CcRelayTap extends AudioWorkletProcessor{",
+"  constructor(){super();",
+"    this.cap=2048;this.buf=new Int16Array(this.cap);this.n=0;",
+"    this.rate=(typeof sampleRate==='number'&&sampleRate>0)?sampleRate:48000;",
+"    this.posted=0;",
+"  }",
+"  flush(){",
+"    if(this.n<=0)return;",
+"    var ab=new ArrayBuffer(this.n*2);",
+"    new Int16Array(ab).set(this.buf.subarray(0,this.n));",
+"    this.port.postMessage({b:ab,n:this.n,r:this.rate},[ab]);",
+"    this.posted++;",
+"    this.n=0;",
+"  }",
 "  process(inputs,outputs){",
 "    var out=outputs[0];",
 "    if(!out||!out.length)return true;",
@@ -63,13 +82,12 @@ var WORKLET_SRC=[
 "    if(!inp||!inp.length){ for(var c=0;c<out.length;c++)out[c].fill(0); return true; }",
 "    for(var k=0;k<out.length;k++){ var s=inp[Math.min(k,inp.length-1)]; if(s)out[k].set(s); }",
 "    var n=inp[0].length,d0=inp[0],d1=inp.length>1?inp[1]:null;",
-"    var buf=new ArrayBuffer(n*2),dv=new DataView(buf);",
 "    for(var i=0;i<n;i++){",
 "      var v=d1?(d0[i]+d1[i])*0.5:d0[i];",
 "      v=v<-1?-1:(v>1?1:v);",
-"      dv.setInt16(i*2,v<0?v*32768:v*32767,true);",
+"      this.buf[this.n++]=v<0?v*32768:v*32767;",
+"      if(this.n>=this.cap)this.flush();",
 "    }",
-"    this.port.postMessage(buf,[buf]);",
 "    return true;",
 "  }",
 "}",
@@ -187,7 +205,10 @@ function installRelay(ctx){
             numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2]
           });
           wn.port.onmessage=function(ev){
-            relaySendInt16(ev.data,(ev.data.byteLength>>1),rate);
+            var d=ev&&ev.data;if(!d)return;
+            /* 新格式 {b:ArrayBuffer,n:采样数,r:采样率}；兼容旧格式的裸 ArrayBuffer */
+            if(d.b){relaySendInt16(d.b,d.n||(d.b.byteLength>>1),d.r||rate);}
+            else if(d.byteLength){relaySendInt16(d,(d.byteLength>>1),rate);}
           };
           tap.connect(wn);wn.connect(silent);
           if(ctx.__ccRelayNode){try{ctx.__ccRelayNode.disconnect();ctx.__ccRelayNode.onaudioprocess=null;}catch(e){}}
@@ -224,14 +245,11 @@ function PatchedAC(){return makeContext();}
 PatchedAC.prototype=AC?AC.prototype:{};
 try{window.AudioContext=PatchedAC;}catch(e){}
 try{if(window.webkitAudioContext){window.webkitAudioContext=PatchedAC;}}catch(e){}
-mediaMode=readMode();
+/* v1.23：媒体通道已废弃（真车实测走不通，见 setMode 注释），固定关闭。
+   localStorage 里残留的旧值也一并清掉，避免老用户一进来又踩同一个坑。 */
+mediaMode=false;
+try{localStorage.setItem(MODE_KEY,'off');}catch(e){}
 try{relayOn=localStorage.getItem(RELAY_KEY)==='on';}catch(e){relayOn=false;}
-/* 旧版切换有 bug，localStorage 里可能两个开关同时为真。
-   启动时强制互斥，否则一进来就是双路叠加（卡顿）。PCM 中转优先。 */
-if(relayOn){
-  mediaMode=false;
-  try{localStorage.setItem(MODE_KEY,'off');}catch(e){}
-}
 bridgeState=relayOn?'relay':(mediaMode?'media':'off');
 if(relayOn){try{window.CARCADE_NATIVE&&window.CARCADE_NATIVE.relayEnable(true);}catch(e){}}
 var evs=['pointerdown','touchstart','mousedown','keydown','click'];
@@ -311,20 +329,17 @@ window.__carcadeAudio={
   mode:function(){return mediaMode?'media':'off';},
   bridgeState:function(){return bridgeState;},
   setMode:function(on){
-    on=!!on;
-    /* 互斥：开媒体通道就关掉 PCM 中转，否则同一个 context 会有两个出口，
-       媒体元素和原生 AudioTrack 同时出声 → 卡顿/拖音。 */
-    if(on&&relayOn){
-      relayOn=false;
-      try{localStorage.setItem(RELAY_KEY,'off');}catch(e){}
-      try{window.CARCADE_NATIVE&&window.CARCADE_NATIVE.relayEnable(false);}catch(e){}
-    }
-    try{localStorage.setItem(MODE_KEY,on?'media':'off');}catch(e){}
-    mediaMode=on;
-    /* 对已有 context 逐个重装出口（新实现走 applyRouting，先卸载再装） */
-    for(var i=0;i<contexts.length;i++){try{applyRouting(contexts[i]);}catch(e){}}
-    bridgeState=mediaMode?'media':(relayOn?'relay':'off');
-    return mediaMode;
+    /* v1.23：媒体通道整条路已废弃。
+       它把网页音频塞进 MediaStreamDestination → <audio>.srcObject，指望走
+       Chromium 的「媒体元素管线」；但这条路最终**仍然由 WebView 进程输出**，
+       车机丢的正是这条流（诊断报告里 contentType=TYPE_0 的那条）。
+       真车实测：开与不开都没有声音 —— 不是开关 bug，是这条路在这台车上走不通。
+       所以固定关闭，只保留真车验证有效的 PCM 中转，避免用户反复试错。 */
+    mediaMode=false;
+    try{localStorage.setItem(MODE_KEY,'off');}catch(e){}
+    if(window.__carcadeAudioUnsupported!==true){window.__carcadeAudioUnsupported=true;}
+    bridgeState=relayOn?'relay':'off';
+    return false;
   },
   /* ---- PCM 中转（车机无声的正解）---- */
   relayOn:function(){return relayOn;},

@@ -52,7 +52,10 @@ function check(name, ok, detail = '') {
 const browser = await puppeteer.launch({
   headless: 'new',
   executablePath: CHROME,
-  args: ['--no-sandbox', '--mute-audio', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'],
+  args: [
+    '--no-sandbox', '--mute-audio', '--disable-background-timer-throttling',
+    '--disable-renderer-backgrounding', '--autoplay-policy=no-user-gesture-required',
+  ],
   defaultViewport: { width: 1920, height: 984, deviceScaleFactor: 1.5 },
 })
 
@@ -218,6 +221,111 @@ try {
   check('平面档中央卡仍有尺寸', layout.w > 100 && layout.h > 150, `${layout.w}×${layout.h}`)
   check('平面档中央卡仍水平居中', Math.abs(layout.cx - layout.vw / 2) <= 4, `卡中心 ${layout.cx} / 视口 ${layout.vw}`)
   check('平面档开始按钮仍可点', layout.startVisible)
+
+  /* ---- 6. 回归锁：短促一下滑动也必须采到帧 ----
+     v1.22 真车报告里出现过「采样窗口 0 / 尚未采样」——原因是采样门槛
+     （不足 12 帧直接丢弃）把证据本身关掉了。用户在车上往往就滑一两下，
+     门槛必须低到「滑一下就有数字」。 */
+  await page.evaluate(() => window.__carcadePerf.setTier(0))
+  const w0 = await page.evaluate(() => window.__carcadePerf.info().windows)
+  await page.mouse.move(box.x - 260, box.y)
+  await page.mouse.down()
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(box.x - 260 + i * 26, box.y)
+    await sleep(14)
+  }
+  await page.mouse.up()
+  await sleep(900)
+  const perf = await page.evaluate(() => {
+    const i = window.__carcadePerf.info()
+    return {
+      windows: i.windows, frames: i.frames, p50: i.p50, total: i.total,
+      worst: i.worst, gpuClass: i.gpuClass, gpuAttr: document.documentElement.getAttribute('data-gpu'),
+    }
+  })
+  check('短促滑动也产出帧数据（窗口数递增）', perf.windows > w0, `${w0} → ${perf.windows} 个窗口`)
+  check('帧间隔有实际数值（p50 > 0）', perf.p50 > 0, `p50 ${perf.p50}ms / ${perf.frames} 帧`)
+  check('累计采样帧数在增长', perf.total > 0, `${perf.total} 帧`)
+  check('最差窗口被记录（供主观掉帧对照）', !!perf.worst && perf.worst.p90 > 0, JSON.stringify(perf.worst))
+  check('GPU 类别写进 html[data-gpu]（决定合成策略）',
+    ['hw', 'sw', 'unknown'].includes(String(perf.gpuAttr)), String(perf.gpuAttr))
+
+  /* ---- 7. 档 2 必须关掉倒影（每帧最贵的一层）---- */
+  const reflectOff = await page.evaluate(() => {
+    document.documentElement.setAttribute('data-cfq', '2')
+    const card = document.querySelector('.cf-card')
+    const el = document.createElement('span')
+    el.className = 'cf-card__reflect'
+    card.appendChild(el)
+    const off = getComputedStyle(el).display
+    card.removeChild(el)
+    document.documentElement.removeAttribute('data-cfq')
+    return off
+  })
+  check('档 2 关掉倒影层', reflectOff === 'none', reflectOff)
+
+  /* ---- 8. 音频链路：采集必须累积后再过桥（静态锁） ----
+     旧实现每 128 帧就过桥一次（375 次/秒），主线程被切碎；
+     现在 worklet 内累积到 2048 帧再发。这两个特征一旦被人改回去，这里会红。 */
+  const shim = await readFile(join(here, '..', 'public', 'shim', 'audio-shim.js'), 'utf8')
+  check('worklet 在音频线程累积后再发（cap ≥ 1024）', /this\.cap\s*=\s*(1024|2048|4096)/.test(shim))
+  check('worklet 只在攒满时 postMessage', /this\.n\s*>=\s*this\.cap\)\s*this\.flush\(\)/.test(shim))
+  check('媒体通道开关已废弃（固定关闭）', /mediaMode=false;\s*$|mediaMode=false;\n/.test(shim) && !/mediaMode=on/.test(shim))
+
+  const relayKt = await readFile(
+    join(here, '..', 'android', 'app', 'src', 'main', 'java', 'net', 'hackmo', 'carcade', 'CarAudioRelay.kt'),
+    'utf8',
+  )
+  check('音频写入线程为 URGENT_AUDIO（防被主线程抢占）', /THREAD_PRIORITY_URGENT_AUDIO/.test(relayKt))
+  check('按网页源采样率建轨（不再固定降采样）', /wantedRate/.test(relayKt) && /FALLBACK_RATE/.test(relayKt))
+  check('报告输出欠载与延迟（下次不用再猜）', /underrunCount/.test(relayKt) && /latencyMs/.test(relayKt))
+
+  /* ---- 9. 音频中转运行时实测：每块必须 ≥1024 采样 ----
+     静态断言只能证明代码里写了「累积」，这里真的建一个 AudioContext、
+     跑一段振荡器，数原生侧实际收到几块、每块多大、报的采样率是多少。 */
+  const audioPage = await browser.newPage()
+  const shimSrc = await readFile(join(here, '..', 'public', 'shim', 'audio-shim.js'), 'utf8')
+  await audioPage.evaluateOnNewDocument(`
+    window.__pushes = [];
+    window.CARCADE_NATIVE = {
+      relayPush: function (b64, count, rate) { window.__pushes.push({ count: count, rate: rate }); return true; },
+      relayEnable: function () { return true; },
+      relayState: function () { return '{"enabled":true}'; }
+    };
+    ${shimSrc}
+  `)
+  await audioPage.goto(ORIGIN, { waitUntil: 'networkidle2', timeout: 45000 })
+  await sleep(1200)
+  await audioPage.evaluate(() => {
+    window.__carcadeAudio.setRelay(true)
+    const ctx = new window.AudioContext()
+    const osc = ctx.createOscillator()
+    const g = ctx.createGain()
+    g.gain.value = 0.25
+    osc.frequency.value = 440
+    osc.connect(g)
+    g.connect(ctx.destination)
+    osc.start()
+    window.__testCtx = ctx
+  })
+  await sleep(2500)
+  const audio = await audioPage.evaluate(() => {
+    const p = window.__pushes || []
+    const counts = p.slice(0, 80).map((x) => x.count)
+    const avg = counts.length ? counts.reduce((a, b) => a + b, 0) / counts.length : 0
+    return {
+      chunks: p.length,
+      avg: Math.round(avg),
+      min: counts.length ? Math.min(...counts) : 0,
+      rate: p.length ? p[0].rate : 0,
+      ctxRate: window.__testCtx ? window.__testCtx.sampleRate : 0,
+      state: window.__testCtx ? window.__testCtx.state : 'none',
+    }
+  })
+  check('PCM 中转真的在送数据', audio.chunks > 0, `${audio.chunks} 块 / 上下文 ${audio.state}`)
+  check('每块 ≥1024 采样（过桥次数降到 1/8 以下）', audio.avg >= 1024, `平均 ${audio.avg} 采样/块（最小 ${audio.min}）`)
+  check('上报的采样率等于 context 实际采样率', audio.rate === audio.ctxRate && audio.ctxRate > 0, `${audio.rate} vs ${audio.ctxRate}`)
+  await audioPage.close()
 
   const summary = { total: results.length, passed: results.filter((r) => r.ok).length }
   console.log(`\n${summary.passed}/${summary.total} 通过`)
