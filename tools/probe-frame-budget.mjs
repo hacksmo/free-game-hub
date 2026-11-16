@@ -198,6 +198,27 @@ try {
   check('平面档中心卡 transform 不含 rotateY', !/rotateY/.test(flatT.center), flatT.center.slice(0, 70))
   check('平面档侧卡 transform 不含 rotateY', !/rotateY/.test(flatT.side), flatT.side.slice(0, 70))
 
+  /* 遮罩是卡上的自定义属性，一改就让整张卡（含封面图）重新光栅。
+     低画质档侧卡已由 opacity 变暗，这一层纯属多余 —— 必须不写、也不显示。 */
+  const shadeBefore = await page.evaluate(() => window.__writes.shade)
+  await page.mouse.move(box.x + 300, box.y)
+  await page.mouse.down()
+  for (let i = 1; i <= 12; i++) {
+    await page.mouse.move(box.x + 300 - i * 20, box.y)
+    await sleep(12)
+  }
+  await page.mouse.up()
+  await sleep(600)
+  const shadeT2 = await page.evaluate(() => ({
+    n: window.__writes.shade,
+    disp: getComputedStyle(document.querySelector('.cf-card__shade')).display,
+  }))
+  check(
+    '平面档不再写遮罩（省掉整卡重光栅）',
+    shadeT2.n - shadeBefore === 0 && shadeT2.disp === 'none',
+    `新增 ${shadeT2.n - shadeBefore} 次 / display ${shadeT2.disp}`,
+  )
+
   /* ---- 5. 降到平面档后，构图与可操作性不能塌 ----
      降档只允许减特效，不允许把中央卡或开始按钮弄没。 */
   const layout = await page.evaluate(() => {
@@ -269,6 +290,21 @@ try {
      现在 worklet 内累积到 2048 帧再发。这两个特征一旦被人改回去，这里会红。 */
   const shim = await readFile(join(here, '..', 'public', 'shim', 'audio-shim.js'), 'utf8')
   check('worklet 在音频线程累积后再发（cap ≥ 1024）', /this\.cap\s*=\s*(1024|2048|4096)/.test(shim))
+  /* 静态锁：全零块必须在音频线程里就被丢掉，不能进 JS 桥 */
+  const shimSrcStatic = await readFile(join(here, '..', 'public', 'shim', 'audio-shim.js'), 'utf8')
+  check(
+    'worklet 跳过全零块（多上下文不再双倍灌队列）',
+    shimSrcStatic.includes('if(this.nz===0){') &&
+      shimSrcStatic.includes('this.silent+=this.n;this.n=0;') &&
+      shimSrcStatic.includes('if(q!==0)this.nz++;'),
+    'nz 计数 + flush 内跳过 + 静音累计定期小包上报',
+  )
+  check(
+    'ScriptProcessor 兜底同样跳过全零块',
+    (shimSrcStatic.match(/nz===0/g) || []).length >= 2,
+    `${(shimSrcStatic.match(/nz===0/g) || []).length} 处`,
+  )
+
   check('worklet 只在攒满时 postMessage', /this\.n\s*>=\s*this\.cap\)\s*this\.flush\(\)/.test(shim))
   check('媒体通道开关已废弃（固定关闭）', /mediaMode=false;\s*$|mediaMode=false;\n/.test(shim) && !/mediaMode=on/.test(shim))
 
@@ -278,6 +314,35 @@ try {
   )
   check('音频写入线程为 URGENT_AUDIO（防被主线程抢占）', /THREAD_PRIORITY_URGENT_AUDIO/.test(relayKt))
   check('按网页源采样率建轨（不再固定降采样）', /wantedRate/.test(relayKt) && /FALLBACK_RATE/.test(relayKt))
+  const relaySrcRaw = await readFile(join(here, '..', 'android', 'app', 'src', 'main', 'java', 'net', 'hackmo', 'carcade', 'CarAudioRelay.kt'), 'utf8')
+  /* 注释里会提到旧写法（「旧版是 maxOf(minBuf * 4, ...)」），
+     断言必须先剥掉注释，否则会把自己的说明文字当成违规代码。 */
+  const relaySrcNow = relaySrcRaw
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('//'))
+    .join('\n')
+  /* 延迟必须由「采样预算」封顶，不能由块数封顶，也不能靠轨道缓冲预留 */
+  check(
+    '队列积压按采样预算裁剪（延迟有上限）',
+    relaySrcNow.includes('MAX_QUEUE_MS') && relaySrcNow.includes('queuedSamples.get() + data.size > budget'),
+    'MAX_QUEUE_MS + budget 裁剪',
+  )
+  check(
+    '轨道缓冲不再预留 0.5 秒（那是延迟的一半）',
+    !relaySrcNow.includes('maxOf(minBuf * 4, rate * 2 / 2)') && relaySrcNow.includes('minBuf * 2'),
+    'minBuf * 2 且封顶 100ms',
+  )
+  check(
+    '延迟用实测在途帧数（不再 queue.size × 2048 猜）',
+    relaySrcNow.includes('writtenFrames.get() - head') && !relaySrcNow.includes('queue.size * 2048'),
+    'playbackHeadPosition 差值',
+  )
+  check(
+    '报告带过桥速率（≈23 单路 / ≈47 双路）',
+    relaySrcNow.includes('pushCps') && relaySrcNow.includes('notePushRate()'),
+    'pushCps',
+  )
   check('报告输出欠载与延迟（下次不用再猜）', /underrunCount/.test(relayKt) && /latencyMs/.test(relayKt))
 
   /* ---- 9. 音频中转运行时实测：每块必须 ≥1024 采样 ----
@@ -325,6 +390,35 @@ try {
   check('PCM 中转真的在送数据', audio.chunks > 0, `${audio.chunks} 块 / 上下文 ${audio.state}`)
   check('每块 ≥1024 采样（过桥次数降到 1/8 以下）', audio.avg >= 1024, `平均 ${audio.avg} 采样/块（最小 ${audio.min}）`)
   check('上报的采样率等于 context 实际采样率', audio.rate === audio.ctxRate && audio.ctxRate > 0, `${audio.rate} vs ${audio.ctxRate}`)
+
+  /* ★ v1.24 根因回归锁：同一个应用里会有多个 AudioContext（大厅一个、每个游戏页一个），
+     进游戏后大厅那路只剩静音，但它**仍然按 48kHz 渲染**并把静音采样灌过来。
+     两路相加 = 2 倍实时产出 → 原生队列灌满 → 延迟 1.7s + 丢块撕裂。
+     这里同时开着「有声」与「全静音」两个上下文，数 2 秒内过了多少块：
+     静音块被跳过时速率应≈单路 23 块/秒；没跳过就是 47 块/秒。 */
+  const before = audio.chunks
+  await audioPage.evaluate(() => {
+    // 第二个上下文：链路上没有任何发声节点，输出全零
+    const silent = new window.AudioContext()
+    const g = silent.createGain()
+    g.gain.value = 0
+    g.connect(silent.destination)
+    window.__silentCtx = silent
+  })
+  await sleep(2000)
+  const dual = await audioPage.evaluate((b) => {
+    const p = window.__pushes || []
+    return {
+      delta: p.length - b,
+      silent: window.__carcadeAudio.info().skipped || 0,
+      silentCtx: window.__silentCtx ? window.__silentCtx.state : 'none',
+    }
+  }, before)
+  check(
+    '静音上下文不占用中转带宽（≤ 单路 1.3 倍）',
+    dual.silentCtx === 'running' && dual.delta > 0 && dual.delta <= 62,
+    `2s 内 ${dual.delta} 块（单路≈47）/ 静音上下文 ${dual.silentCtx} / 已跳过 ${dual.silent} 采样`,
+  )
   await audioPage.close()
 
   const summary = { total: results.length, passed: results.filter((r) => r.ok).length }

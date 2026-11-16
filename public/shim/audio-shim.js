@@ -25,6 +25,9 @@ var lastTest={element:null,webaudio:null};
 var relayOn=false;
 var relayChunks=0;
 var relaySamples=0;
+/* v1.24：静音块整块跳过（见 WORKLET_SRC 注释）。这里累计网页侧跳过了多少采样，
+   诊断报告用它证明「另一个上下文是不是在灌静音」。 */
+var relaySkipped=0;
 /* ★ v1.21：采样率不再用全局单值。
    之前 relaySrcRate 只有一个变量，取最后一次 noteRate 的值；大厅与游戏
    可能各自 48000 / 44100，用错速率重采样 → 变调 + 断续。
@@ -59,21 +62,35 @@ function relaySendInt16(buf,count,rate){
    postMessage + base64 + 过 JS 桥**，等于每秒 375 次跨语言调用，全部落在主线程上。
    车机诊断报告里「已送 12076 块 / 1545728 采样」正是 128 样本一块 ——
    主线程被这 375 次/秒的调用切成碎片，rAF 帧间隔必然抖。
-   现在在音频线程里累积到 2048 帧（约 43ms）再发一次，过桥次数降到 1/16。 */
+   现在在音频线程里累积到 2048 帧（约 43ms）再发一次，过桥次数降到 1/16。
+
+   ★ v1.24 的根因：**静音块必须整块跳过**。
+   每个 HTML 文档（大厅、每个游戏页）都会被注入本 shim，各自造一个 AudioContext。
+   大厅进游戏后音乐只是 gain 淡到 0，**图还在渲染**，worklet 照样按 48kHz 把静音
+   采样发给原生 —— 游戏页自己那路也在发，两路相加等于 2 倍实时产出。
+   原生队列有上限，于是长期灌满、丢块；真车报告里「队列 28 块 + 轨道缓冲 0.5s
+   = 延迟 1694ms、丢 8706/20586 块」就是这么来的。
+   现在缓冲全零就不发；跳过的采样数挂在下一块真实数据上带出去（不额外过桥）。 */
 var WORKLET_SRC=[
 "class CcRelayTap extends AudioWorkletProcessor{",
 "  constructor(){super();",
 "    this.cap=2048;this.buf=new Int16Array(this.cap);this.n=0;",
 "    this.rate=(typeof sampleRate==='number'&&sampleRate>0)?sampleRate:48000;",
-"    this.posted=0;",
+"    this.posted=0;this.nz=0;this.silent=0;",
 "  }",
 "  flush(){",
 "    if(this.n<=0)return;",
+"    if(this.nz===0){",
+"      this.silent+=this.n;this.n=0;",
+"      if(this.silent>=this.rate*4){this.port.postMessage({n:0,s:this.silent});this.silent=0;}",
+"      return;",
+"    }",
 "    var ab=new ArrayBuffer(this.n*2);",
 "    new Int16Array(ab).set(this.buf.subarray(0,this.n));",
-"    this.port.postMessage({b:ab,n:this.n,r:this.rate},[ab]);",
-"    this.posted++;",
-"    this.n=0;",
+"    var msg={b:ab,n:this.n,r:this.rate};",
+"    if(this.silent>0){msg.s=this.silent;this.silent=0;}",
+"    this.port.postMessage(msg,[ab]);",
+"    this.posted++;this.n=0;this.nz=0;",
 "  }",
 "  process(inputs,outputs){",
 "    var out=outputs[0];",
@@ -85,7 +102,9 @@ var WORKLET_SRC=[
 "    for(var i=0;i<n;i++){",
 "      var v=d1?(d0[i]+d1[i])*0.5:d0[i];",
 "      v=v<-1?-1:(v>1?1:v);",
-"      this.buf[this.n++]=v<0?v*32768:v*32767;",
+"      var q=v<0?v*32768:v*32767;",
+"      if(q!==0)this.nz++;",
+"      this.buf[this.n++]=q;",
 "      if(this.n>=this.cap)this.flush();",
 "    }",
 "    return true;",
@@ -113,11 +132,16 @@ function makeScriptTap(ctx,rate){
         var d0=ib.getChannelData(0);
         var d1=ib.numberOfChannels>1?ib.getChannelData(1):null;
         var buf=new ArrayBuffer(len*2),dv=new DataView(buf);
+        var nz=0;
         for(var i=0;i<len;i++){
           var v=d1?(d0[i]+d1[i])*0.5:d0[i];
           v=v<-1?-1:(v>1?1:v);
-          dv.setInt16(i*2,v<0?v*32768:v*32767,true);
+          var q=v<0?v*32768:v*32767;
+          if(q!==0)nz++;
+          dv.setInt16(i*2,q,true);
         }
+        /* 与 worklet 同一规则：整块静音就不占带宽、不灌原生队列 */
+        if(nz===0){relaySkipped+=len;return;}
         relaySendInt16(buf,len,rate);
       }catch(e){}
     };
@@ -206,6 +230,8 @@ function installRelay(ctx){
           });
           wn.port.onmessage=function(ev){
             var d=ev&&ev.data;if(!d)return;
+            /* s = 上一段被跳过的静音采样数（worklet 攒着一起报，不额外过桥） */
+            if(d.s>0)relaySkipped+=d.s;
             /* 新格式 {b:ArrayBuffer,n:采样数,r:采样率}；兼容旧格式的裸 ArrayBuffer */
             if(d.b){relaySendInt16(d.b,d.n||(d.b.byteLength>>1),d.r||rate);}
             else if(d.byteLength){relaySendInt16(d,(d.byteLength>>1),rate);}
@@ -360,7 +386,7 @@ window.__carcadeAudio={
   relayInfo:function(){
     var st='';
     try{var n=window.CARCADE_NATIVE;if(n&&n.relayState)st=n.relayState();}catch(e){}
-    return {on:relayOn,chunks:relayChunks,samples:relaySamples,native:st};
+    return {on:relayOn,chunks:relayChunks,samples:relaySamples,skipped:relaySkipped,native:st};
   },
   /* 每个 context 当前装的是哪条出口 —— 诊断报告据此判断有没有双路叠加 */
   routes:function(){
@@ -385,6 +411,7 @@ window.__carcadeAudio={
       routes:this.routes(),
       chunks:relayChunks,
       samples:relaySamples,
+      skipped:relaySkipped,
       element:lastTest.element,
       webaudio:lastTest.webaudio
     };
